@@ -36,8 +36,10 @@ export const countPhrase = (unit: UnitSlug, count: number): string => `${formatC
 // Each verb follows that side's own sign, because over a short span even the top of the ranking can be a price that fell. Vegetables are outside the ranking but have tiles, so the sentence says so.
 export function priceMoveLine(worst: PastComparison["worst"], best: PastComparison["best"]): string {
   const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
-  const top = worst.priceChange > 0 ? "lo que más subió" : "lo que menos bajó";
-  const bottom = best.priceChange < 0 ? "Lo que más bajó" : "Lo que menos subió";
+  // Both zero means every price stayed put, and naming one twice would read as a mistake.
+  if (worst.priceChange === 0 && best.priceChange === 0) return "Sin contar verduras, ningún precio cambió.";
+  const top = worst.priceChange === 0 ? "lo que no cambió" : worst.priceChange > 0 ? "lo que más subió" : "lo que menos bajó";
+  const bottom = best.priceChange === 0 ? "Lo que no cambió" : best.priceChange < 0 ? "Lo que más bajó" : "Lo que menos subió";
   return `Sin contar verduras, ${top}: ${name(worst.unit)}. ${bottom}: ${name(best.unit)}.`;
 }
 

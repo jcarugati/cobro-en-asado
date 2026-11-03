@@ -285,8 +285,11 @@ button[aria-pressed="true"] {
 }
 
 /* Compact is for a mouse: a finger keeps the full target at any width. */
-@media (pointer: coarse) {
-  .units button { min-height: 44px; }
+@media (any-pointer: coarse) {
+  .units button {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 600px) {

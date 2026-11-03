@@ -50,9 +50,16 @@ describe("fixture acceptance values", () => {
     expect(Math.round(result.breakEven)).toBe(1986506);
     expect(result.realChange * 100).toBeCloseTo(-39.59, 2);
     expect(result.worst.unit).toBe("carne-picada");
-    expect(result.worst.change * 100).toBeCloseTo(-57.6, 1);
+    expect(result.worst.priceChange).toBeCloseTo(93.369, 3);
     expect(result.best.unit).toBe("fideos");
-    expect(result.best.change * 100).toBeCloseTo(-3.7, 1);
+    expect(result.best.priceChange).toBeCloseTo(40.544, 3);
+  });
+  it("ranks the same at extreme amounts, where the change in units is -1 to within rounding", () => {
+    const result = Result.getOrThrow(comparePast(snapshot, { unit: "asado", pay: 0.01, oldPay: 1e12, month: "201901" }));
+    expect(result.worst).toEqual(comparison().worst);
+    expect(result.best).toEqual(comparison().best);
+    expect(result.worst.unit).toBe("carne-picada");
+    expect(result.best.unit).toBe("fideos");
   });
   it("excludes seasonal units even when they are extreme", () => {
     const modified = structuredClone(snapshot);
@@ -124,8 +131,8 @@ it("builds the small copy helpers", () => {
 });
 
 describe("past comparison copy", () => {
-  const worst = { unit: "carne-picada", change: -0.5, priceChange: 1 } as const;
-  const best = { unit: "fideos", change: 0, priceChange: 0.1 } as const;
+  const worst = { unit: "carne-picada", priceChange: 1 } as const;
+  const best = { unit: "fideos", priceChange: 0.1 } as const;
   const base = { unitsThen: 161, unitsNow: 71, unitChange: 0, breakEven: 1986506, realChange: -0.396, worst, best };
   it("matches the agreed lines on the acceptance case", () => {
     const result = comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" });
@@ -163,9 +170,12 @@ describe("price move sentence", () => {
     })) as Snapshot["prices"];
     expect(lineFor({ ...snapshot, prices }, "202608").line).toBe("Sin contar verduras, lo que menos bajó: desodorante. Lo que más bajó: asado.");
   });
-  it("treats a flat price as neither rise nor fall on the side where it is the extreme", () => {
-    expect(priceMoveLine({ unit: "queso", change: 0, priceChange: 0 }, { unit: "asado", change: 0, priceChange: 0 }))
-      .toBe("Sin contar verduras, lo que menos bajó: queso. Lo que menos subió: asado.");
+  it.each([
+    [0, -0.1, "Sin contar verduras, lo que no cambió: queso. Lo que más bajó: asado."],
+    [0.1, 0, "Sin contar verduras, lo que más subió: queso. Lo que no cambió: asado."],
+    [0, 0, "Sin contar verduras, ningún precio cambió."],
+  ])("does not claim a move for a flat price (%s, %s)", (top, bottom, line) => {
+    expect(priceMoveLine({ unit: "queso", priceChange: top }, { unit: "asado", priceChange: bottom })).toBe(line);
   });
   it("is true to the raw prices in every month of the fixture", () => {
     const months = snapshot.ipc.slice(0, -1).map((_, index) => {
