@@ -71,7 +71,7 @@ export function Share({ target, comparing }: { target: ShareTarget | null; compa
   const status = note || (step === "preparing" ? "Preparando la imagen…" : step === "retry" ? "Tocá de nuevo para compartir" : "");
 
   return (
-    // Hidden, not removed: a block that comes and goes would move the tiles under the finger that changed the count.
+    // Hidden, not removed: a block that comes and goes would move the presets below it under the finger that tapped one.
     <div className="share" style={target ? undefined : { visibility: "hidden" }}>
       <p id="share-warning">Con una calculadora se puede estimar tu sueldo a partir de esto.</p>
       {target && step === "fallback" ? (

@@ -1,10 +1,10 @@
 "use client";
 
-import { type CSSProperties, useEffect, useLayoutEffect, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as Result from "effect/Result";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, TALLY_STRIKE, TALLY_STROKES, tally, unitsFor } from "../domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, MONTH_NAMES, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
-import { parsePay } from "../domain/pay.ts";
+import { parsePay, withDots } from "../domain/pay.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
 import { shareResultFor, shareTarget } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
@@ -97,6 +97,10 @@ function Money({ id, label, value, onChange, example, note, large }: {
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          // Not while typing: rewriting the text mid-edit makes the caret jump. A tab switch also blurs, and the visitor may come back to keep typing.
+          onBlur={() => {
+            if (document.hasFocus() && withDots(value) !== value) onChange(withDots(value));
+          }}
           aria-invalid={invalid}
           aria-describedby={`${id}-hint${note ? ` ${id}-note` : ""}`}
         />
@@ -177,6 +181,7 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
   // Last valid pay: half-typed text like 1.2 keeps the result on screen instead of flashing the opening state.
   const [pay, setPay] = useState<number | null>(null);
   const [preset, setPreset] = useState<Preset | null>(null);
+  const beforePreset = useRef<{ text: string; pay: number | null }>({ text: "", pay: null });
   const [unit, setUnit] = useState<UnitSlug>("asado");
   const [overrideText, setOverrideText] = useState("");
   const [pastForm, setPastForm] = useState<PastForm>({ monthNumber: "", year: "", oldPayText: "" });
@@ -221,7 +226,7 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
           id="pay"
           large
           label="¿Cuánto te cae en la cuenta por mes?"
-          note="Sin aguinaldo. El número no sale de tu teléfono."
+          note="Sin aguinaldo. El número no se manda a ningún lado."
           example="1.200.000"
           value={payText}
           onChange={(text) => {
@@ -292,10 +297,11 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
               <Tally count={count} />
             </>
           )}
+          {amount !== null && <p className="note">{`Precio promedio: ${formatPesos(priceOf(unit))} por ${definition.priceUnit}.`}</p>}
           <p className="printed">{printed}</p>
         </div>
-        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. */}
-        {amount !== null && <Share key={`${target?.path} ${payText} ${overrideText}`} target={target} comparing={pastShown !== null} />}
+        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: dots added on blur must not remount the button being tapped, or the tap is lost. */}
+        {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
       </section>
 
       <section>
@@ -307,11 +313,18 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
               type="button"
               aria-pressed={preset === key}
               onClick={() => {
-                setPreset(preset === key ? null : key);
+                if (preset === key) {
+                  setPreset(null);
+                  setPayText(beforePreset.current.text);
+                  setPay(beforePreset.current.pay);
+                  // Only the opening state hides the override field, so only then does the override go.
+                  if (beforePreset.current.pay === null) setOverrideText("");
+                  return;
+                }
+                if (preset === null) beforePreset.current = { text: payText, pay };
+                setPreset(key);
                 setPayText("");
                 setPay(null);
-                // Turning a preset off also returns to the opening state, where the override field is gone.
-                if (preset === key) setOverrideText("");
               }}
             >
               {label}
@@ -341,7 +354,7 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
               <Money
                 id="override"
                 label={`Precio por ${definition.priceUnit}`}
-                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y las marcas.`}
+                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y los palitos.`}
                 example={formatCount(priceOf(unit))}
                 value={overrideText}
                 onChange={setOverrideText}
@@ -352,8 +365,8 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
         <details>
           <summary>Cómo se calcula</summary>
           <div className="panel">
-            <p>Dividimos lo que escribís por el precio promedio de cada producto. La cuenta se hace en tu teléfono.</p>
-            <p>Las fuentes son del INDEC: precios promedio e IPC de GBA, canasta básica total y canasta de crianza. Los datos son de {monthLabel(snapshot.lastMonth)}.</p>
+            <p>Dividimos lo que escribís por el precio promedio de cada producto. La cuenta se hace en tu dispositivo.</p>
+            <p>Las fuentes son del INDEC: precios promedio e IPC de GBA, canasta básica total y canasta de crianza. Los datos son de {monthWithDe(snapshot.lastMonth)}.</p>
             <p>Vale solo para GBA. Son promedios publicados, no el precio de una carnicería ni de una marca, y salen con demora: el INDEC los publica el mes siguiente.</p>
             <p>¿Y antes? compara con los precios en general (IPC GBA). No es una medida de tu inflación personal.</p>
           </div>

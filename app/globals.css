@@ -116,6 +116,9 @@ h1 {
 
 .hint { font-weight: 800; font-size: 0.875rem; }
 
+/* Keeps the pay note on one line at 360 px, by 1 px. A wrap would push the result 20 px down. */
+.money-large .note { word-spacing: 0; }
+
 /* Reserved, so the hint coming and going never moves the tile row under a finger. */
 .money-large .hint { min-height: 1.4em; }
 
@@ -135,7 +138,7 @@ h1 {
 
 .headline {
   /* Fills the column for up to 3 characters and shrinks to fit longer counts. */
-  --number: min(13rem, 100cqw / (max(3, var(--chars)) * 0.67));
+  --number: min(var(--cap, 13rem), 100cqw / (max(3, var(--chars)) * 0.67));
   display: grid;
   gap: 2px;
   font-size: 1.625rem;
@@ -157,7 +160,7 @@ h1 {
 .lines { display: grid; gap: 8px; }
 
 /* A smaller number leaves its spare height above the lead, not inside the sentence, so every count keeps the tile row in place. */
-.headline > :first-child { margin-top: calc((min(13rem, 100cqw / 2.01) - var(--number)) * 0.86); }
+.headline > :first-child { margin-top: calc((min(var(--cap, 13rem), 100cqw / 2.01) - var(--number)) * 0.86); }
 
 .alternate { font-size: 1.25rem; font-weight: 800; }
 
@@ -257,9 +260,36 @@ button[aria-pressed="true"] {
   font-size: 0.875rem;
 }
 
-/* Desktop has room for the whole ticket, so the printed line stays on the first screen and the tiles follow it. */
+/* Wrapped and compact, so the number, every tile and the printed line share the first screen at 1280x800. A pressed tile keeps its weight, or the wider text would rewrap the tiles after it. */
 @media (min-width: 601px) {
-  #units-label, .units { order: 1; }
+  .ticket > section { padding-block: 12px; }
+
+  .headline { --cap: 12rem; }
+
+  .tally { column-gap: 6px; }
+
+  .tally svg {
+    width: auto;
+    height: 26px;
+  }
+
+  .units { gap: 4px; }
+
+  .units button {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 0.875rem;
+  }
+
+  .units button[aria-pressed="true"] { font-weight: inherit; }
+}
+
+/* Compact is for a mouse: a finger keeps the full target at any width. */
+@media (any-pointer: coarse) {
+  .units button {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 600px) {

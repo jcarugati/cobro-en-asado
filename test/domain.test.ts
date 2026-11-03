@@ -3,8 +3,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, monthIndex, priceAt, tally, unitsFor } from "../src/domain/calc.ts";
-import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../src/domain/format.ts";
-import { parsePay } from "../src/domain/pay.ts";
+import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, priceMoveLine, unitLabel } from "../src/domain/format.ts";
+import { parsePay, withDots } from "../src/domain/pay.ts";
 import { decodeShareSegments, encodeSharePath, type ShareResult } from "../src/domain/share.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
 import { UNITS, type UnitSlug } from "../src/domain/units.ts";
@@ -14,6 +14,10 @@ const price = (unit: UnitSlug, month = snapshot.lastMonth) => Option.getOrThrow(
 const comparison = () => Result.getOrThrow(comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" }));
 
 describe("pay parser", () => {
+  it.each([
+    ["1200000", "1.200.000"], ["1.200.000", "1.200.000"], ["$ 1200000", "1.200.000"], ["800", "800"], ["1000000000000", "1.000.000.000.000"],
+    ["1200000,50", "1200000,50"], ["1200,00", "1200,00"], ["800 mil", "800 mil"], ["1.2", "1.2"], ["0", "0"], ["", ""],
+  ])("on blur shows %j as %j", (input, shown) => expect(withDots(input)).toBe(shown));
   it.each([
     ["1.200.000", 1200000], ["1200000", 1200000], ["$ 1.200.000", 1200000],
     ["1.200.000,50", 1200000.5], ["1200000,5", 1200000.5], ["1.200", 1200],
@@ -46,9 +50,16 @@ describe("fixture acceptance values", () => {
     expect(Math.round(result.breakEven)).toBe(1986506);
     expect(result.realChange * 100).toBeCloseTo(-39.59, 2);
     expect(result.worst.unit).toBe("carne-picada");
-    expect(result.worst.change * 100).toBeCloseTo(-57.6, 1);
+    expect(result.worst.priceChange).toBeCloseTo(93.369, 3);
     expect(result.best.unit).toBe("fideos");
-    expect(result.best.change * 100).toBeCloseTo(-3.7, 1);
+    expect(result.best.priceChange).toBeCloseTo(40.544, 3);
+  });
+  it("ranks the same at extreme amounts, where the change in units is -1 to within rounding", () => {
+    const result = Result.getOrThrow(comparePast(snapshot, { unit: "asado", pay: 0.01, oldPay: 1e12, month: "201901" }));
+    expect(result.worst).toEqual(comparison().worst);
+    expect(result.best).toEqual(comparison().best);
+    expect(result.worst.unit).toBe("carne-picada");
+    expect(result.best.unit).toBe("fideos");
   });
   it("excludes seasonal units even when they are extreme", () => {
     const modified = structuredClone(snapshot);
@@ -114,21 +125,21 @@ it("formats deterministic Argentine text with rounding and NBSP", () => {
 it("builds the small copy helpers", () => {
   expect(monthWithDe("201901")).toBe("enero de 2019");
   expect(ownMonthNote("202609", "202609")).toBe("");
-  expect(ownMonthNote("202608", "202609")).toBe(" (agosto 2026)");
+  expect(ownMonthNote("202608", "202609")).toBe(" (agosto de 2026)");
   expect(unitLabel("asado", 1.4)).toBe("kilo de asado");
   expect(unitLabel("asado", 71)).toBe("kilos de asado");
 });
 
 describe("past comparison copy", () => {
-  const worst = { unit: "carne-picada", change: -0.5 } as const;
-  const best = { unit: "fideos", change: 0 } as const;
+  const worst = { unit: "carne-picada", priceChange: 1 } as const;
+  const best = { unit: "fideos", priceChange: 0.1 } as const;
   const base = { unitsThen: 161, unitsNow: 71, unitChange: 0, breakEven: 1986506, realChange: -0.396, worst, best };
   it("matches the agreed lines on the acceptance case", () => {
     const result = comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" });
     expect(pastLines("asado", "201901", Result.getOrThrow(result))).toEqual([
       "En enero de 2019 eran 161 kilos de asado. Hoy, 71.",
-      "Para empatar con los precios en general, hoy deberías cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
-      "Lo que peor aguantó: carne picada. Lo que mejor aguantó: fideos.",
+      "Para empatar con los precios en general, hoy tendrías que cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
+      "Sin contar verduras, lo que más subió: carne picada. Lo que menos subió: fideos.",
     ]);
   });
   it("says arriba when real change is positive", () => {
@@ -139,6 +150,51 @@ describe("past comparison copy", () => {
   });
   it("agrees in the singular", () => {
     expect(pastLines("asado", "201901", { ...base, unitsThen: 1.2 })[0]).toBe("En enero de 2019 era 1 kilo de asado. Hoy, 71.");
+  });
+});
+
+describe("price move sentence", () => {
+  const lineFor = (from: Snapshot, month: string) => {
+    const { worst, best } = Result.getOrThrow(comparePast(from, { unit: "asado", pay: 1200000, oldPay: 30000, month }));
+    return { worst, best, line: priceMoveLine(worst, best) };
+  };
+  it("names a price that fell as falling", () => {
+    expect(lineFor(snapshot, "202603").line).toBe("Sin contar verduras, lo que más subió: queso. Lo que más bajó: asado.");
+    expect(lineFor(snapshot, "202603").best.priceChange * 100).toBeCloseTo(-5.3, 1);
+  });
+  it("uses both falling verbs when every price fell", () => {
+    // The fixture has no such month, so the last month drops every price from the one before, each by a different amount.
+    const prices = Object.fromEntries(UNITS.map((unit, index) => {
+      const series = snapshot.prices[unit.slug];
+      return [unit.slug, [...series.slice(0, -1), series.at(-2)! * (0.7 + index / 100)]];
+    })) as Snapshot["prices"];
+    expect(lineFor({ ...snapshot, prices }, "202608").line).toBe("Sin contar verduras, lo que menos bajó: desodorante. Lo que más bajó: asado.");
+  });
+  it.each([
+    [0, -0.1, "Sin contar verduras, lo que no cambió: queso. Lo que más bajó: asado."],
+    [0.1, 0, "Sin contar verduras, lo que más subió: queso. Lo que no cambió: asado."],
+    [0, 0, "Sin contar verduras, ningún precio cambió."],
+  ])("does not claim a move for a flat price (%s, %s)", (top, bottom, line) => {
+    expect(priceMoveLine({ unit: "queso", priceChange: top }, { unit: "asado", priceChange: bottom })).toBe(line);
+  });
+  it("is true to the raw prices in every month of the fixture", () => {
+    const months = snapshot.ipc.slice(0, -1).map((_, index) => {
+      const total = 2016 * 12 + 11 + index;
+      return `${Math.floor(total / 12)}${String(total % 12 + 1).padStart(2, "0")}`;
+    });
+    expect(months).toHaveLength(117);
+    for (const month of months) {
+      const { worst, best, line } = lineFor(snapshot, month);
+      const moved = (slug: UnitSlug) => price(slug) / price(slug, month) - 1;
+      expect(worst.priceChange, month).toBeCloseTo(moved(worst.unit), 10);
+      expect(best.priceChange, month).toBeCloseTo(moved(best.unit), 10);
+      for (const unit of UNITS.filter((item) => !item.seasonal)) {
+        expect(moved(unit.slug), `${month} ${unit.slug}`).toBeLessThanOrEqual(worst.priceChange + 1e-12);
+        expect(moved(unit.slug), `${month} ${unit.slug}`).toBeGreaterThanOrEqual(best.priceChange - 1e-12);
+      }
+      expect(line, month).toContain(moved(worst.unit) > 0 ? "lo que más subió:" : "lo que menos bajó:");
+      expect(line, month).toContain(moved(best.unit) < 0 ? "Lo que más bajó:" : "Lo que menos subió:");
+    }
   });
 });
 

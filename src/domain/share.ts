@@ -33,8 +33,8 @@ export function encodeSharePath(result: ShareResult): Option.Option<string> {
 }
 
 export function sharedLine(result: ShareResult): string {
-  const count = result.kind === "t" ? result.nowCount : result.count;
-  return `Alguien cobra ${countPhrase(result.unit, count)}${result.kind === "o" ? " a precio de su carnicería" : ""}. ¿Y vos?`;
+  if (result.kind === "t") return `Alguien cobraba ${countPhrase(result.unit, result.thenCount)} en ${result.thenMonth.slice(0, 4)}. Hoy, ${formatCount(result.nowCount)}. ¿Y vos?`;
+  return `Alguien cobra ${countPhrase(result.unit, result.count)}${result.kind === "o" ? " a precio de su carnicería" : ""}. ¿Y vos?`;
 }
 
 export type CardLines = {

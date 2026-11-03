@@ -14,7 +14,7 @@ describe("share copy", () => {
   it.each([
     [pay, "Alguien cobra 71 kilos de asado. ¿Y vos?", "Cobro 71 kilos de asado por mes.", "(o 452 paquetes de yerba)", "/card/p/asado/71/452/202609"],
     [{ ...pay, kind: "o", count: 60 }, "Alguien cobra 60 kilos de asado a precio de su carnicería. ¿Y vos?", "Cobro 60 kilos de asado por mes, a precio de mi carnicería.", "(o 452 paquetes de yerba)", "/card/o/asado/60/452/202609"],
-    [{ kind: "t", unit: "asado", thenCount: 161, nowCount: 71, thenMonth: "201901", month: "202609" }, "Alguien cobra 71 kilos de asado. ¿Y vos?", "En 2019 cobraba 161 kilos de asado. Hoy, 71.", null, "/card/t/asado/161/71/201901/202609"],
+    [{ kind: "t", unit: "asado", thenCount: 161, nowCount: 71, thenMonth: "201901", month: "202609" }, "Alguien cobraba 161 kilos de asado en 2019. Hoy, 71. ¿Y vos?", "En 2019 cobraba 161 kilos de asado. Hoy, 71.", null, "/card/t/asado/161/71/201901/202609"],
   ] as const)("formats $0.kind exactly", (result, line, headline, detail, path) => {
     expect(sharedLine(result)).toBe(line);
     expect(cardLines(result)).toMatchObject({ headline, footer });
@@ -30,7 +30,7 @@ describe("share copy", () => {
     expect(sharedLine({ ...pay, kind: "o", count: 1 })).toBe("Alguien cobra 1 kilo de asado a precio de su carnicería. ¿Y vos?");
     expect(cardLines({ ...pay, kind: "o", count: 1 }).headline).toBe("Cobro 1 kilo de asado por mes, a precio de mi carnicería.");
     const then: ShareResult = { kind: "t", unit: "asado", thenCount: 1, nowCount: 1, thenMonth: "202001", month: "202609" };
-    expect(sharedLine(then)).toBe("Alguien cobra 1 kilo de asado. ¿Y vos?");
+    expect(sharedLine(then)).toBe("Alguien cobraba 1 kilo de asado en 2020. Hoy, 1. ¿Y vos?");
     expect(cardLines(then).headline).toBe("En 2020 cobraba 1 kilo de asado. Hoy, 1.");
   });
   it("uses the alternate asado unit and groups large counts", () => {

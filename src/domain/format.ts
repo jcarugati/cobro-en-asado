@@ -22,7 +22,7 @@ export function formatPercent(ratio: number): string {
 export const monthWithDe = (month: Month): string => monthLabel(month).replace(" ", " de ");
 
 // A preset can lag the price data, and then it must print its own month.
-export const ownMonthNote = (month: Month, lastMonth: Month): string => month === lastMonth ? "" : ` (${monthLabel(month)})`;
+export const ownMonthNote = (month: Month, lastMonth: Month): string => month === lastMonth ? "" : ` (${monthWithDe(month)})`;
 
 const unitOf = (unit: UnitSlug) => UNITS.find((item) => item.slug === unit)!;
 
@@ -33,14 +33,23 @@ export function unitLabel(unit: UnitSlug, count: number): string {
 
 export const countPhrase = (unit: UnitSlug, count: number): string => `${formatCount(count)} ${unitLabel(unit, count)}`;
 
+// Each verb follows that side's own sign, because over a short span even the top of the ranking can be a price that fell. Vegetables are outside the ranking but have tiles, so the sentence says so.
+export function priceMoveLine(worst: PastComparison["worst"], best: PastComparison["best"]): string {
+  const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
+  // Both zero means every price stayed put, and naming one twice would read as a mistake.
+  if (worst.priceChange === 0 && best.priceChange === 0) return "Sin contar verduras, ningún precio cambió.";
+  const top = worst.priceChange === 0 ? "lo que no cambió" : worst.priceChange > 0 ? "lo que más subió" : "lo que menos bajó";
+  const bottom = best.priceChange === 0 ? "Lo que no cambió" : best.priceChange < 0 ? "Lo que más bajó" : "Lo que menos subió";
+  return `Sin contar verduras, ${top}: ${name(worst.unit)}. ${bottom}: ${name(best.unit)}.`;
+}
+
 export function pastLines(unit: UnitSlug, month: Month, comparison: PastComparison): [string, string, string] {
   const { unitsThen, unitsNow, breakEven, realChange, worst, best } = comparison;
   const gap = formatPercent(realChange);
   const position = gap === "0,0\u00a0%" ? "Estás igual: ni arriba ni abajo." : `Estás un ${gap} ${realChange > 0 ? "arriba" : "abajo"}.`;
-  const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
   return [
     `En ${monthWithDe(month)} ${Math.round(unitsThen) === 1 ? "era" : "eran"} ${countPhrase(unit, unitsThen)}. Hoy, ${formatCount(unitsNow)}.`,
-    `Para empatar con los precios en general, hoy deberías cobrar ${formatPesos(breakEven)}. ${position}`,
-    `Lo que peor aguantó: ${name(worst.unit)}. Lo que mejor aguantó: ${name(best.unit)}.`,
+    `Para empatar con los precios en general, hoy tendrías que cobrar ${formatPesos(breakEven)}. ${position}`,
+    priceMoveLine(worst, best),
   ];
 }
