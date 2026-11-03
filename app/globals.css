@@ -21,7 +21,6 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-size: 1rem;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   word-spacing: 0.05em;
@@ -55,6 +54,7 @@ p { margin: 0; }
 
 .ticket > section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding: 18px 0;
 }
@@ -110,7 +110,13 @@ h1 {
 
 /* Result */
 
-.result { container-type: inline-size; }
+.figures { container-type: inline-size; }
+
+/* A step after a delay, not movement, so it stays on under reduced motion. No transition back: valid text restores at once. */
+.stale .result, .stale .past {
+  opacity: 0.35;
+  transition: opacity 0s 0.7s;
+}
 
 .tagline {
   font-size: clamp(2rem, 9cqw, 3rem);
@@ -140,7 +146,7 @@ h1 {
   white-space: nowrap;
 }
 
-.result [aria-live] { display: grid; gap: 8px; }
+.lines { display: grid; gap: 8px; }
 
 .alternate { font-size: 1.25rem; font-weight: 800; }
 
@@ -190,6 +196,25 @@ button[aria-pressed="true"] {
   font-weight: 800;
 }
 
+@media (max-width: 600px) {
+  .units {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Runs to the screen edge, where the cut-off tile shows there is more. The padding keeps focus rings unclipped. */
+    margin: -6px -16px;
+    padding: 6px 16px;
+    scroll-padding-inline: 16px;
+    scrollbar-width: thin;
+    gap: 4px;
+  }
+
+  /* Tighter than desktop so a tile's text is visibly cut at the common phone widths (360, 375, 390, 393). */
+  .units button {
+    flex: none;
+    padding-inline: 10px;
+  }
+}
+
 @media (hover: hover) {
   button:hover { border-color: var(--ink); text-decoration: underline; }
 }
@@ -201,7 +226,7 @@ button[aria-pressed="true"] {
   padding: 6px 0;
 }
 
-details + details { border-top: 2px dotted var(--muted); }
+details:not([hidden]) + details { border-top: 2px dotted var(--muted); }
 
 summary {
   display: flex;

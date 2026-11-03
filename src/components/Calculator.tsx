@@ -75,7 +75,7 @@ function Money({ id, label, value, onChange, example, note, large }: {
   const invalid = Result.isFailure(parsed) && parsed.failure === "invalid";
   const [hint, setHint] = useState("");
 
-  // Typing 1.200.000 passes through invalid text like 1.2, so wait for a pause before showing the hint.
+  // Typing 1.200.000 passes through invalid text like 1.2, so give it a moment before showing the hint.
   useEffect(() => {
     const timer = setTimeout(() => setHint(invalid ? `Escribilo así: ${example}` : ""), invalid ? 700 : 0);
     return () => clearTimeout(timer);
@@ -94,6 +94,7 @@ function Money({ id, label, value, onChange, example, note, large }: {
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          aria-invalid={invalid}
           aria-describedby={`${id}-hint${note ? ` ${id}-note` : ""}`}
         />
       </div>
@@ -103,12 +104,13 @@ function Money({ id, label, value, onChange, example, note, large }: {
   );
 }
 
-function Past({ snapshot, unit, pay, overridden, printed }: {
+function Past({ snapshot, unit, pay, overridden, printed, hidden }: {
   snapshot: Snapshot;
   unit: UnitSlug;
   pay: number;
   overridden: boolean;
   printed: string;
+  hidden: boolean;
 }) {
   const [monthNumber, setMonthNumber] = useState("");
   const [year, setYear] = useState("");
@@ -124,7 +126,7 @@ function Past({ snapshot, unit, pay, overridden, printed }: {
   const comparison = month && oldPay !== null ? comparePast(snapshot, { unit, pay, oldPay, month }) : null;
 
   return (
-    <details>
+    <details hidden={hidden}>
       <summary>¿Y antes?</summary>
       <div className="panel">
         <div className="when">
@@ -177,6 +179,8 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   const definition = UNITS.find((item) => item.slug === unit)!;
   const printed = `Promedio GBA · ${monthLabel(snapshot.lastMonth)} · INDEC`;
 
+  const parsedPay = parsePay(payText);
+  const stale = Result.isFailure(parsedPay) && parsedPay.failure === "invalid" && pay !== null;
   const amount = preset ? snapshot.presets[preset].value : pay;
   const overridePrice = amountOf(overrideText);
   const count = amount === null ? 0 : unitsFor(amount, overridePrice ?? priceOf(unit));
@@ -184,10 +188,10 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   const lead = preset === "cbtHogar2" ? "La canasta de una familia tipo son"
     : preset === "crianzaMenor1" ? "Criar un bebé menor de 1 año son"
     : "Cobrás";
-  const tail = `${unitLabel(unit, count)}${preset === "crianzaMenor1" ? " por mes" : ""}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
+  const tail = `${unitLabel(unit, count)}${preset !== null ? " por mes" : ""}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
 
   return (
-    <main className="ticket">
+    <main className={stale ? "ticket stale" : "ticket"}>
       <h1>Cobro en Asado</h1>
 
       <section>
@@ -203,28 +207,56 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
             setPreset(null);
             const parsed = parsePay(text);
             if (Result.isSuccess(parsed)) setPay(parsed.success);
-            else if (parsed.failure === "empty") setPay(null);
+            else if (parsed.failure === "empty") {
+              setPay(null);
+              setOverrideText("");
+            }
           }}
         />
       </section>
 
-      <section className="result">
-        {amount === null ? (
-          <>
-            <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
-            <p>Un kilo de asado, precio promedio: {formatPesos(priceOf("asado"))}.</p>
-            <p className="printed">{printed}</p>
-          </>
-        ) : (
+      <section className="figures">
+        {amount !== null && (
           <>
             {/* The animated number stays outside the live region, so only the final sentence is announced. */}
-            <p className="headline" aria-hidden="true">
+            <p className="headline result" aria-hidden="true">
               <span>{lead}</span>
               <BigNumber value={count} />
               <span>{tail}</span>
             </p>
-            <div aria-live="polite" aria-atomic="true">
-              <p className="sr-only">{lead} {formatCount(count)} {tail}</p>
+            {/* Outside the live region too, or the first announcement would read all 22 names. */}
+            <p id="units-label">Contalo en:</p>
+            <div className="tiles units" role="group" aria-labelledby="units-label">
+              {UNITS.map((item) => (
+                <button
+                  key={item.slug}
+                  type="button"
+                  aria-pressed={unit === item.slug}
+                  onClick={() => {
+                    setUnit(item.slug);
+                    if (item.slug !== unit) setOverrideText("");
+                  }}
+                  onFocus={(event) => {
+                    // Browsers leave a partly visible tile cut off. Keyboard only: moving it under a pressed pointer would lose the click.
+                    if (event.currentTarget.matches(":focus-visible")) event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+                  }}
+                >
+                  {item.tile}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="lines result" aria-live="polite">
+          {amount === null ? (
+            <>
+              <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
+              <p>Un kilo de asado, precio promedio: {formatPesos(priceOf("asado"))}.</p>
+            </>
+          ) : (
+            <>
+              {/* One string, so a changed count announces the sentence and not a bare number. */}
+              <p className="sr-only">{`${lead} ${formatCount(count)} ${tail}`}</p>
               <p className="alternate">O {countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.</p>
               {preset === null && (
                 <p>Equivale al {formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA{ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.</p>
@@ -236,10 +268,10 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
                 <p>Canasta de crianza{ownMonthNote(snapshot.presets.crianzaMenor1.month, snapshot.lastMonth)}: incluye el valor del tiempo de cuidado.</p>
               )}
               <Tally count={count} />
-              <p className="printed">{printed}</p>
-            </div>
-          </>
-        )}
+            </>
+          )}
+          <p className="printed">{printed}</p>
+        </div>
       </section>
 
       <section>
@@ -254,6 +286,8 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
                 setPreset(preset === key ? null : key);
                 setPayText("");
                 setPay(null);
+                // Turning a preset off also returns to the opening state, where the override field is gone.
+                if (preset === key) setOverrideText("");
               }}
             >
               {label}
@@ -262,31 +296,16 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
         </div>
       </section>
 
-      {amount !== null && (
-        <section>
-          <p id="units-label">Contalo en:</p>
-          <div className="tiles" role="group" aria-labelledby="units-label">
-            {UNITS.map((item) => (
-              <button
-                key={item.slug}
-                type="button"
-                aria-pressed={unit === item.slug}
-                onClick={() => {
-                  setUnit(item.slug);
-                  setOverrideText("");
-                }}
-              >
-                {item.tile}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       <section className="more">
-        {pay !== null && preset === null && (
-          <Past snapshot={snapshot} unit={unit} pay={pay} overridden={overridePrice !== null} printed={printed} />
-        )}
+        {/* Stays mounted so correcting the pay keeps its three fields. Hidden whenever pay is the placeholder 0. */}
+        <Past
+          snapshot={snapshot}
+          unit={unit}
+          pay={pay ?? 0}
+          overridden={overridePrice !== null}
+          printed={printed}
+          hidden={pay === null || preset !== null}
+        />
         {amount !== null && (
           <details>
             <summary>¿En tu carnicería está a otro precio?</summary>
@@ -294,7 +313,7 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
               <Money
                 id="override"
                 label={`Precio por ${definition.priceUnit}`}
-                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande.`}
+                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y las marcas.`}
                 example={formatCount(priceOf(unit))}
                 value={overrideText}
                 onChange={setOverrideText}
