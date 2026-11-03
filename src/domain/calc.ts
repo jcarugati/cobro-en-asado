@@ -60,6 +60,10 @@ export function comparePast(snapshot: Snapshot, input: {
   });
 }
 
+// Slightly off-square on purpose: a printed ticket, tally added by hand. Shared by the page and the card.
+export const TALLY_STROKES = ["M3 2 2 28", "M10 1 11 29", "M17 3 16 28", "M24 1 25 29"];
+export const TALLY_STRIKE = "M-1 24 28 6";
+
 export function tally(count: number): { groups: number[]; overflow: number } {
   const rounded = Math.max(0, Math.round(count));
   const marks = Math.min(100, rounded);

@@ -66,6 +66,14 @@ h1 {
   font-weight: 800;
 }
 
+.shared {
+  padding-block: 14px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
 /* Money fields */
 
 .money { display: grid; gap: 6px; }
@@ -173,6 +181,28 @@ h1 {
   stroke-linecap: round;
 }
 
+/* Share */
+
+.share {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.share .field {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* Reserved like the pay hint, so a status never moves what is below it. */
+.share .hint { min-height: 1.4em; }
+
+.share-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
 /* Presets and unit tiles */
 
 .tiles {
@@ -195,6 +225,27 @@ button {
 button[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--ink);
+  color: var(--paper);
+  font-weight: 800;
+}
+
+/* A link that does a button's job looks like one. */
+.share-actions a, a.print {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--muted);
+  color: inherit;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* The one printed action on the ticket. */
+.print, a.print {
+  border-color: var(--ember);
+  background: var(--ember);
   color: var(--paper);
   font-weight: 800;
 }
@@ -233,7 +284,7 @@ button[aria-pressed="true"] {
 }
 
 @media (hover: hover) {
-  button:hover { border-color: var(--ink); text-decoration: underline; }
+  button:hover, .share-actions a:hover, a.print:hover { border-color: var(--ink); text-decoration: underline; }
 }
 
 /* Disclosures */
