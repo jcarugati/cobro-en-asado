@@ -102,6 +102,7 @@ card image     /card/<the same segments>
 
 | Decision | Why |
 |---|---|
+| The chart verdict says `Empate` when the wage lag leaves the winner unknown | Wages are compared at the last common month, but the chart shows the latest product price. A printed tie with either price or a winner that flips between them cannot support a definite verdict until the missing wage value is published |
 | Charts include the national INDEC wage index as reference lines; IPIM is skipped; series use multiples | Owner requested wages despite the original exclusion in DESIGN.md. They describe reference series, never the visitor's salary history: own pay stays two points. Wholesale IPIM is outside this consumer-price comparison. Multiples (`x66`) read directly and match the existing `x121` copy, unlike base 100 |
 | `vercel.json` declares `framework: nextjs` | The project was created before any code and has no framework set |
 | npm and Vitest | Installed everywhere, and no build-script approvals to manage |

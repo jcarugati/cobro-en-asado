@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { monthIndex } from "../src/domain/calc.ts";
-import { chartData, monthAt, multipleTicks, rangeStart, rebase } from "../src/domain/chart.ts";
+import { chartData, monthAt, multipleTicks, rangeStart, rebase, type ChartData } from "../src/domain/chart.ts";
 import { chartSummary, chartVerdict, formatMultiple } from "../src/domain/format.ts";
 import { UNITS } from "../src/domain/units.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
@@ -86,9 +86,9 @@ describe("chart copy", () => {
     expect(chartSummary(current, chart, "asado", "general")).toBe(`Desde enero 2019: el asado ${formatMultiple(current.prices.asado.at(-1)! / 186.91)}, los precios en general ${formatMultiple(current.ipc.at(-1)! / 189.1236)} y los salarios x56,9.`);
   });
   it.each([
-    ["yerba", "privado", "201901", "Desde enero 2019: la yerba x43,3, los precios en general x66,2 y los privados registrados x57,4 (hasta agosto 2026)."],
-    ["fideos", "publico", "201901", "Desde enero 2019: los fideos x41,5, los precios en general x66,2 y los públicos x48,6 (hasta agosto 2026)."],
-    ["panales", "noRegistrado", "201901", "Desde enero 2019: los pañales x55,4, los precios en general x66,2 y los no registrados x67,8 (hasta agosto 2026)."],
+    ["yerba", "privado", "201901", "Desde enero 2019: la yerba x43,3, los precios en general x66,2 y los salarios privados registrados x57,4 (hasta agosto 2026)."],
+    ["fideos", "publico", "201901", "Desde enero 2019: los fideos x41,5, los precios en general x66,2 y los salarios públicos x48,6 (hasta agosto 2026)."],
+    ["panales", "noRegistrado", "201901", "Desde enero 2019: los pañales x55,4, los precios en general x66,2 y los salarios no registrados x67,8 (hasta agosto 2026)."],
     ["vino", "general", "202607", "Desde julio 2026: el vino x0,99, los precios en general x1,04 y los salarios x1,03 (hasta agosto 2026)."],
   ] as const)("summarizes %s with %s since %s", (unit, wage, start, expected) => {
     const chart = Option.getOrThrow(chartData(snapshot, { unit, wage, start }));
@@ -99,8 +99,9 @@ describe("chart copy", () => {
 describe("chart verdict", () => {
   it.each([
     ["asado", "general", "¿Los salarios le ganaron al asado?", "No"],
-    ["yerba", "privado", "¿Los privados registrados le ganaron a la yerba?", "Sí"],
-    ["fideos", "publico", "¿Los públicos les ganaron a los fideos?", "Sí"],
+    ["yerba", "privado", "¿Los salarios privados registrados le ganaron a la yerba?", "Sí"],
+    ["fideos", "publico", "¿Los salarios públicos les ganaron a los fideos?", "Sí"],
+    ["panales", "noRegistrado", "¿Los salarios no registrados les ganaron a los pañales?", "Sí"],
   ] as const)("asks about %s using %s", (unit, wage, question, answer) => {
     const chart = Option.getOrThrow(chartData(snapshot, { ...input, unit, wage }));
     expect(chartVerdict(chart, unit, wage)).toEqual({ question, answer });
@@ -112,14 +113,22 @@ describe("chart verdict", () => {
     expect(question).toContain(["huevos", "fideos", "panales"].includes(slug) ? "les ganaron" : "le ganaron");
   });
   it.each([
-    [[1, 2, 4], [1, 3, null], "Sí"],
-    [[1, 4, 2], [1, 3, null], "No"],
+    [[1, 2, 4], [1, 3, null], "Empate"],
+    [[1, 4, 2], [1, 3, null], "Empate"],
     [[1, 2.01, 4], [1, 2.04, null], "Empate"],
-  ] as const)("compares products %j and wages %j at their common month", (product, wages, answer) => {
-    const chart = {
+    [[1, 4, 2.01], [1, 2.04, null], "Empate"],
+    [[1, 3, 1], [1, 3, null], "Empate"],
+    [[1, 2, 2.5], [1, 3, null], "Sí"],
+    [[1, 4, 3.5], [1, 3, null], "No"],
+  ] as const)("compares common and shown products %j with wages %j", (product, wages, answer) => {
+    const chart: ChartData = {
       months: ["202607", "202608", "202609"],
       product: [...product], wages: [...wages], ipc: [1, 2, 3], own: null,
     };
     expect(chartVerdict(chart, "asado", "general").answer).toBe(answer);
+  });
+  it("leaves leche since January 2019 undecided while wages lag its shown price", () => {
+    const chart = Option.getOrThrow(chartData(snapshot, { ...input, unit: "leche" }));
+    expect(chartVerdict(chart, "leche", "general").answer).toBe("Empate");
   });
 });

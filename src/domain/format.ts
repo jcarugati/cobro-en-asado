@@ -62,9 +62,11 @@ export function formatMultiple(value: number): string {
   return `x${value.toFixed(rounded >= 2 ? 1 : 2).replace(".", ",")}`;
 }
 
+const wageLabel = (wage: WageKey): string => wage === "general" ? "salarios" : `salarios ${WAGES.find((item) => item.key === wage)!.label.toLowerCase()}`;
+
 export function chartSummary(snapshot: Snapshot, data: ChartData, unit: UnitSlug, wage: WageKey): string {
   const definition = unitOf(unit);
-  const label = WAGES.find((item) => item.key === wage)!.label.toLowerCase();
+  const label = wageLabel(wage);
   const wageMultiple = data.wages.findLast((value) => value !== null)!;
   const note = snapshot.wages.lastMonth < snapshot.lastMonth ? ` (hasta ${monthLabel(snapshot.wages.lastMonth)})` : "";
   return `Desde ${monthLabel(data.months[0]!)}: ${definition.article} ${definition.tile.toLowerCase()} ${formatMultiple(data.product.at(-1)!)}, los precios en general ${formatMultiple(data.ipc.at(-1)!)} y los ${label} ${formatMultiple(wageMultiple)}${note}.`;
@@ -74,14 +76,17 @@ export function chartVerdict(data: ChartData, unit: UnitSlug, wage: WageKey): {
   question: string; answer: "Sí" | "No" | "Empate";
 } {
   const definition = unitOf(unit);
-  const label = WAGES.find((item) => item.key === wage)!.label.toLowerCase();
+  const label = wageLabel(wage);
   const pronoun = ["los", "las"].includes(definition.article) ? "les" : "le";
   const article = definition.article === "el" ? "al" : `a ${definition.article}`;
   const index = data.wages.findLastIndex((value) => value !== null);
   const wages = data.wages[index]!;
   const product = data.product[index]!;
+  const shown = data.product.at(-1)!;
+  // Lagging wages leave the winner unknown when the common and shown prices disagree or print a tie.
+  const tied = [product, shown].some((value) => formatMultiple(wages) === formatMultiple(value)) || (wages > product) !== (wages > shown);
   return {
     question: `¿Los ${label} ${pronoun} ganaron ${article} ${definition.tile.toLowerCase()}?`,
-    answer: formatMultiple(wages) === formatMultiple(product) ? "Empate" : wages > product ? "Sí" : "No",
+    answer: tied ? "Empate" : wages > product ? "Sí" : "No",
   };
 }
