@@ -12,6 +12,7 @@ it("only the tap on Compartir can request anything", async () => {
     // The fetch lives in fetchThenSend, whose only caller is tap.
     expect(source.slice(source.indexOf("async function fetchThenSend"), source.indexOf("function tap()"))).toMatch(/\bfetch\(/);
     expect(source.match(/\bfetchThenSend\(/g)?.length).toBe(2);
-    expect(source.slice(source.indexOf("function tap()"))).toMatch(/\bfetchThenSend\(/);
+    expect(source.match(/[ {]tap[(}]/g)).toEqual([" tap(", "{tap}"]);
+    expect(source.slice(source.indexOf("function tap()"), source.indexOf("async function copyLink"))).toMatch(/\bfetchThenSend\(/);
   }
 });

@@ -74,7 +74,7 @@ export function renderCard(lines: CardLines, init?: ResponseInit): ImageResponse
   const number = formatCount(lines.count);
   // An override's tail breaks after its comma into two lines, so its number gives up height. 0.67 is the page's width per character.
   const twoLines = lines.tail.includes(", ");
-  // A then-vs-now card also gives up height, to its larger last line.
+  // A then-vs-now card caps its number lower: at 216 the lead gets tight under the top rule, and a smaller number reads less like the result.
   const size = Math.min(twoLines ? 170 : lines.kind === "t" ? 190 : 216, Math.floor(INNER / (number.length * 0.67)));
   return ticket(
     lines.footer,
