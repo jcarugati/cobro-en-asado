@@ -50,8 +50,7 @@ function BigNumber({ value }: { value: number }) {
     return () => cancelAnimationFrame(frame);
   }, [target]);
 
-  const style = { "--chars": formatCount(target).length } as CSSProperties;
-  return <span className="big" style={style}>{formatCount(shown)}</span>;
+  return <span className="big">{formatCount(shown)}</span>;
 }
 
 function Tally({ count }: { count: number }) {
@@ -198,10 +197,10 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   const overridePrice = amountOf(overrideText);
   const count = amount === null ? 0 : unitsFor(amount, overridePrice ?? priceOf(unit));
 
-  const lead = preset === "cbtHogar2" ? "La canasta de una familia tipo son"
-    : preset === "crianzaMenor1" ? "Criar un bebé menor de 1 año son"
+  const lead = preset === "cbtHogar2" ? "Por mes, la canasta de una familia tipo son"
+    : preset === "crianzaMenor1" ? "Por mes, criar un bebé menor de 1 año son"
     : "Cobrás";
-  const tail = `${unitLabel(unit, count)}${preset !== null ? " por mes" : ""}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
+  const tail = `${unitLabel(unit, count)}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
 
   return (
     <main className={stale ? "ticket stale" : "ticket"}>
@@ -234,7 +233,7 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
         {amount !== null && (
           <>
             {/* The animated number stays outside the live region, so only the final sentence is announced. */}
-            <p className="headline result" aria-hidden="true">
+            <p className="headline result" aria-hidden="true" style={{ "--chars": formatCount(count).length } as CSSProperties}>
               <span>{lead}</span>
               <BigNumber value={count} />
               <span>{tail}</span>

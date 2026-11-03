@@ -126,6 +126,8 @@ h1 {
 }
 
 .headline {
+  /* Fills the column for up to 3 characters and shrinks to fit longer counts. */
+  --number: min(13rem, 100cqw / (max(3, var(--chars)) * 0.67));
   display: grid;
   gap: 2px;
   font-size: 1.625rem;
@@ -136,8 +138,7 @@ h1 {
 
 .big {
   display: block;
-  /* Sized for at least 3 characters, so 2 and 3 digit counts keep the tile row in one place. Longer counts shrink to fit. */
-  font-size: min(13rem, calc(100cqw / (max(3, var(--chars)) * 0.67)));
+  font-size: var(--number);
   line-height: 0.86;
   letter-spacing: -0.02em;
   /* Tabular figures carry side bearings; pull the first one back onto the text edge. */
@@ -146,6 +147,9 @@ h1 {
 }
 
 .lines { display: grid; gap: 8px; }
+
+/* A smaller number leaves its spare height above the lead, not inside the sentence, so every count keeps the tile row in place. */
+.headline > :first-child { margin-top: calc((min(13rem, 100cqw / 2.01) - var(--number)) * 0.86); }
 
 .alternate { font-size: 1.25rem; font-weight: 800; }
 
