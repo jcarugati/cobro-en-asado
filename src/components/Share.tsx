@@ -20,9 +20,10 @@ export function Share({ target, comparing }: { target: ShareTarget | null; compa
   useEffect(() => () => request.current?.abort(), []);
 
   async function send(shared: ShareTarget, card: File, secondTap: boolean) {
+    // Before the call: the image is ready and the sheet is open, so no status applies. The ref still blocks repeat taps.
+    setStep("idle");
     try {
       await navigator.share({ files: [card], title: "Cobro en Asado", text: shared.text, url: location.origin + shared.path });
-      setStep("idle");
     } catch (error) {
       setStep(afterShareError(error instanceof Error ? error.name : "", secondTap));
     }
@@ -73,15 +74,16 @@ export function Share({ target, comparing }: { target: ShareTarget | null; compa
     // Hidden, not removed: a block that comes and goes would move the tiles under the finger that changed the count.
     <div className="share" style={target ? undefined : { visibility: "hidden" }}>
       <p id="share-warning">Con una calculadora se puede estimar tu sueldo a partir de esto.</p>
-      {/* The button is far from the comparison it sends, so it says so. One line on desktop, and kept while hidden, so the tiles below stay put. */}
-      {comparing && <p className="note">Vas a compartir: {target?.text}</p>}
       {target && step === "fallback" ? (
         <div className="share-actions">
           <button type="button" autoFocus onClick={() => void copyLink(target.path)}>Copiar link</button>
           <a href={target.card} download={FILE_NAME} onClick={() => setNote("Descargando la imagen")}>Descargar imagen</a>
         </div>
       ) : (
-        <button type="button" className="print" aria-describedby="share-warning" aria-busy={step === "preparing"} onClick={tap}>Compartir</button>
+        <button type="button" className="print" aria-describedby="share-warning" aria-busy={step === "preparing"} onClick={tap}>
+          {/* The button is far from the comparison it sends, so it says so. */}
+          {comparing ? "Compartir la comparación" : "Compartir"}
+        </button>
       )}
       {target && linkShown && (
         <div className="money">

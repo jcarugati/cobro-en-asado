@@ -38,6 +38,7 @@ export function sharedLine(result: ShareResult): string {
 }
 
 export type CardLines = {
+  kind: ShareResult["kind"];
   headline: string; // The whole sentence: what the share sheet sends as text.
   lead: string;
   count: number;
@@ -52,10 +53,11 @@ export function cardLines(result: ShareResult): CardLines {
     const lead = `En ${result.thenMonth.slice(0, 4)} cobraba`;
     const tail = `${unitLabel(result.unit, result.thenCount)}.`;
     const detail = `Hoy, ${formatCount(result.nowCount)}.`;
-    return { headline: `${lead} ${formatCount(result.thenCount)} ${tail} ${detail}`, lead, count: result.thenCount, tail, detail, footer };
+    return { kind: result.kind, headline: `${lead} ${formatCount(result.thenCount)} ${tail} ${detail}`, lead, count: result.thenCount, tail, detail, footer };
   }
   const tail = `${unitLabel(result.unit, result.count)} por mes${result.kind === "o" ? ", a precio de mi carnicería" : ""}.`;
   return {
+    kind: result.kind,
     headline: `Cobro ${formatCount(result.count)} ${tail}`,
     lead: "Cobro",
     count: result.count,

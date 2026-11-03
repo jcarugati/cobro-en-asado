@@ -74,7 +74,8 @@ export function renderCard(lines: CardLines, init?: ResponseInit): ImageResponse
   const number = formatCount(lines.count);
   // An override's tail breaks after its comma into two lines, so its number gives up height. 0.67 is the page's width per character.
   const twoLines = lines.tail.includes(", ");
-  const size = Math.min(twoLines ? 170 : 216, Math.floor(INNER / (number.length * 0.67)));
+  // A then-vs-now card also gives up height, to its larger last line.
+  const size = Math.min(twoLines ? 170 : lines.kind === "t" ? 190 : 216, Math.floor(INNER / (number.length * 0.67)));
   return ticket(
     lines.footer,
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -82,7 +83,8 @@ export function renderCard(lines: CardLines, init?: ResponseInit): ImageResponse
       <div style={{ display: "flex", fontSize: size, fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.02em", marginLeft: -size * 0.035 }}>{number}</div>
       <div style={{ display: "flex", fontSize: 46, fontWeight: 800, lineHeight: 1.1, whiteSpace: "pre-line" }}>{lines.tail.replace(", ", ",\n")}</div>
       <Tally count={lines.count} />
-      {lines.detail && <div style={{ display: "flex", fontSize: 38, fontWeight: 800, marginTop: 8 }}>{lines.detail}</div>}
+      {/* On a then-vs-now card, today's number is the point. */}
+      {lines.detail && <div style={{ display: "flex", fontWeight: 800, marginTop: 8, lineHeight: 1.1, ...(lines.kind === "t" ? { fontSize: 64, color: EMBER } : { fontSize: 38 }) }}>{lines.detail}</div>}
     </div>,
     init,
   );
