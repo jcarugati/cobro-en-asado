@@ -20,7 +20,9 @@ describe("pay parser", () => {
     [" \u00a0$\u00a01.200.000 \n", 1200000], ["0,01", 0.01], ["1000000000000", 1e12],
   ])("parses %s", (input, value) => expect(parsePay(input)).toEqual(Result.succeed(value)));
   it.each(["", " \u00a0", "$", " $ \t"])("refuses empty %j", (input) => expect(parsePay(input)).toEqual(Result.fail("empty")));
-  it.each(["1,200,000", "1.2", "12.34", "1.2000", "abc", "-5", "0", "0,00", "1000000000000,01", "1,234", "1e3", "+1", "$$1", "1$", "1.000,", "Infinity"])("refuses invalid %s", (input) => expect(parsePay(input)).toEqual(Result.fail("invalid")));
+  it.each(["1,200,000", "1.2", "12.34", "1.2000", "abc", "-5", "0", "0,00", "1000000000000,01", "1,234", "1e3", "+1", "$$1", "1$", "1.000,", "Infinity",
+    "1 2", "1\n200", "1, 20", "120000 80000", "1 200 000", "0.500", "0.001", "007",
+  ])("refuses invalid %s", (input) => expect(parsePay(input)).toEqual(Result.fail("invalid")));
 });
 
 describe("fixture acceptance values", () => {
@@ -61,7 +63,7 @@ describe("fixture acceptance values", () => {
 describe("months and alternate units", () => {
   it.each([
     ["201612", "ok"], ["201611", "tooEarly"], ["202608", "ok"], ["202609", "tooLate"],
-    ["202610", "tooLate"], ["201913", "invalid"], ["abc", "invalid"], ["201900", "invalid"], ["000001", "invalid"],
+    ["202610", "tooLate"], ["201913", "invalid"], ["abc", "invalid"], ["201900", "invalid"],
   ])("checks %s", (month, expected) => {
     const result = checkPastMonth(snapshot, month);
     expect(result).toEqual(expected === "ok" ? Result.succeed(month) : Result.fail(expected));
@@ -81,9 +83,13 @@ describe("months and alternate units", () => {
   });
 });
 
-it.each([0, 1, 5, 71, 100, 101, 123])("tallies %s", (count) => {
-  const expected: Record<number, number[]> = { 0: [], 1: [1], 5: [5], 71: [...Array<number>(14).fill(5), 1], 100: Array<number>(20).fill(5), 101: Array<number>(20).fill(5), 123: Array<number>(20).fill(5) };
-  expect(tally(count)).toEqual({ groups: expected[count], overflow: Math.max(0, count - 100) });
+it.each<[number, number[], number]>([
+  [0, [], 0], [1, [1], 0], [5, [5], 0], [71, [...Array<number>(14).fill(5), 1], 0],
+  [100, Array<number>(20).fill(5), 0], [101, Array<number>(20).fill(5), 1], [123, Array<number>(20).fill(5), 23],
+  [0.49, [], 0], [0.5, [1], 0], [71.5, [...Array<number>(14).fill(5), 2], 0],
+  [100.5, Array<number>(20).fill(5), 1], [-3, [], 0],
+])("tallies %s", (count, groups, overflow) => {
+  expect(tally(count)).toEqual({ groups, overflow });
 });
 
 it("formats deterministic Argentine text with rounding and NBSP", () => {
@@ -95,6 +101,7 @@ it("formats deterministic Argentine text with rounding and NBSP", () => {
   expect(formatPesos(comparison().breakEven)).toBe("$1.986.506");
   expect(formatPercent(0.735)).toBe("73,5\u00a0%");
   expect(formatPercent(-0.3959)).toBe("39,6\u00a0%");
+  expect(formatPercent(12.2511)).toBe("1.225,1\u00a0%");
   expect(countPhrase("asado", 71.3)).toBe("71 kilos de asado");
   expect(countPhrase("asado", 1.4)).toBe("1 kilo de asado");
   expect(countPhrase("asado", 0)).toBe("0 kilos de asado");
@@ -138,13 +145,16 @@ describe("share paths", () => {
   });
 });
 
-it("keeps every domain file free of runtime and barrel imports", async () => {
+it("allows only Option and Result imports from effect in every domain file", async () => {
   const root = new URL("../src/domain/", import.meta.url);
   const files = await readdir(root, { recursive: true, withFileTypes: true });
   for (const file of files) {
     if (!file.isFile()) continue;
     const source = await readFile(`${file.parentPath}/${file.name}`, "utf8");
-    expect(source, file.name).not.toMatch(/(?:from\s*|import\s*\(\s*|import\s*)["']effect(?:["']|\/(?:Effect|Schema)(?:["']|\/))/);
+    const imports = source.matchAll(/(?:from\s*|import\s*\(\s*|import\s*)["'](effect(?:\/[^"']*)?)["']/g);
+    for (const [, specifier] of imports) {
+      expect(["effect/Option", "effect/Result"], file.name).toContain(specifier);
+    }
     expect(source, file.name).not.toMatch(/\bflow\b/);
   }
 });

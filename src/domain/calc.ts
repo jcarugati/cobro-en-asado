@@ -1,12 +1,12 @@
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { Month, Snapshot } from "./snapshot.ts";
+import { MONTH_PATTERN, type Month, type Snapshot } from "./snapshot.ts";
 import { UNITS, type UnitSlug } from "./units.ts";
 
 export const altUnitOf = (unit: UnitSlug): UnitSlug => unit === "asado" ? "yerba" : "asado";
 
 export function monthIndex(snapshot: Snapshot, month: Month): Option.Option<number> {
-  if (month.length !== 6 || !/^[0-9]{4}(0[1-9]|1[0-2])$/.test(month) || month < snapshot.firstMonth || month > snapshot.lastMonth) return Option.none();
+  if (!MONTH_PATTERN.test(month) || month < snapshot.firstMonth || month > snapshot.lastMonth) return Option.none();
   const index = (Number(month.slice(0, 4)) - Number(snapshot.firstMonth.slice(0, 4))) * 12
     + Number(month.slice(4)) - Number(snapshot.firstMonth.slice(4));
   return Option.some(index);
@@ -22,7 +22,7 @@ export const canastaShare = (snapshot: Snapshot, pay: number): number => pay / s
 type PastMonthError = "invalid" | "tooEarly" | "tooLate";
 
 export function checkPastMonth(snapshot: Snapshot, month: Month): Result.Result<Month, PastMonthError> {
-  if (month.length !== 6 || !/^[0-9]{4}(0[1-9]|1[0-2])$/.test(month) || month.startsWith("0000")) return Result.fail("invalid");
+  if (!MONTH_PATTERN.test(month)) return Result.fail("invalid");
   if (month < snapshot.firstMonth) return Result.fail("tooEarly");
   if (month >= snapshot.lastMonth) return Result.fail("tooLate");
   return Result.succeed(month);

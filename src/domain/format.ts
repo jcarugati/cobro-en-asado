@@ -14,7 +14,8 @@ export function formatCount(n: number): string {
 export const formatPesos = (n: number): string => `$${formatCount(n)}`;
 
 export function formatPercent(ratio: number): string {
-  return `${(Math.abs(ratio) * 100).toFixed(1).replace(".", ",")}\u00a0%`;
+  const [whole, decimal] = (Math.abs(ratio) * 100).toFixed(1).split(".");
+  return `${formatCount(Number(whole))},${decimal}\u00a0%`;
 }
 
 export function countPhrase(unit: UnitSlug, count: number): string {

@@ -1,13 +1,13 @@
 import * as Option from "effect/Option";
-import type { Month } from "./snapshot.ts";
+import { MONTH_PATTERN, type Month } from "./snapshot.ts";
 import { UNITS, type UnitSlug } from "./units.ts";
 
 export type ShareResult =
   | { kind: "p" | "o"; unit: UnitSlug; count: number; altCount: number; month: Month }
   | { kind: "t"; unit: UnitSlug; thenCount: number; nowCount: number; thenMonth: Month; month: Month };
 
-const validMonth = (month: string): boolean => month.length === 6 && /^[0-9]{4}(0[1-9]|1[0-2])$/.test(month) && month >= "201612" && month <= "209912";
-const validCount = (count: string): boolean => count === count.trim() && /^(0|[1-9]\d{0,6})$/.test(count) && Number(count) <= 1000000;
+const validMonth = (month: string): boolean => MONTH_PATTERN.test(month) && month >= "201612" && month <= "209912";
+const validCount = (count: string): boolean => /^(0|[1-9]\d{0,6})$/.test(count) && Number(count) <= 1000000;
 
 export function decodeShareSegments(segments: readonly string[]): Option.Option<ShareResult> {
   const [kind, slug, first, second, firstMonth, lastMonth] = segments;
