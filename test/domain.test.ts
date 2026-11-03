@@ -145,15 +145,15 @@ describe("share paths", () => {
   });
 });
 
-it("allows only Option and Result imports from effect in every domain file", async () => {
+it("allows only sibling, Option and Result imports in every domain file", async () => {
   const root = new URL("../src/domain/", import.meta.url);
   const files = await readdir(root, { recursive: true, withFileTypes: true });
   for (const file of files) {
     if (!file.isFile()) continue;
     const source = await readFile(`${file.parentPath}/${file.name}`, "utf8");
-    const imports = source.matchAll(/(?:from\s*|import\s*\(\s*|import\s*)["'](effect(?:\/[^"']*)?)["']/g);
+    const imports = source.matchAll(/(?:from\s*|import\s*\(\s*|import\s*)["']([^"']+)["']/g);
     for (const [, specifier] of imports) {
-      expect(["effect/Option", "effect/Result"], file.name).toContain(specifier);
+      expect(specifier!.startsWith("./") || ["effect/Option", "effect/Result"].includes(specifier!), `${file.name}: ${specifier}`).toBe(true);
     }
     expect(source, file.name).not.toMatch(/\bflow\b/);
   }
