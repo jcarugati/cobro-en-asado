@@ -2,11 +2,13 @@
 
 import { type CSSProperties, useEffect, useLayoutEffect, useState } from "react";
 import * as Result from "effect/Result";
-import { altUnitOf, canastaShare, checkPastMonth, comparePast, tally, unitsFor } from "../domain/calc.ts";
+import { altUnitOf, canastaShare, checkPastMonth, comparePast, TALLY_STRIKE, TALLY_STROKES, tally, unitsFor } from "../domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, MONTH_NAMES, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
 import { parsePay } from "../domain/pay.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
+import { shareResultFor, shareTarget } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
+import { Share } from "./Share.tsx";
 
 type Preset = "cbtHogar2" | "crianzaMenor1";
 
@@ -14,10 +16,6 @@ const PRESET_BUTTONS: { key: Preset; label: string }[] = [
   { key: "cbtHogar2", label: "Una familia tipo" },
   { key: "crianzaMenor1", label: "Criar un bebé" },
 ];
-
-// Marks are slightly off-square on purpose: printed ticket, tally added by hand.
-const STROKES = ["M3 2 2 28", "M10 1 11 29", "M17 3 16 28", "M24 1 25 29"];
-const STRIKE = "M-1 24 28 6";
 
 // The row remounts after the opening state with its scroll reset. Not scrollIntoView, which can also scroll the page.
 function revealPressedTile(row: HTMLDivElement | null) {
@@ -59,7 +57,7 @@ function Tally({ count }: { count: number }) {
     <div className="tally" aria-hidden="true">
       {groups.map((marks, index) => (
         <svg key={index} viewBox="-3 0 34 30" width="34" height="30">
-          <path d={marks === 5 ? `${STROKES.join(" ")} ${STRIKE}` : STROKES.slice(0, marks).join(" ")} />
+          <path d={marks === 5 ? `${TALLY_STROKES.join(" ")} ${TALLY_STRIKE}` : TALLY_STROKES.slice(0, marks).join(" ")} />
         </svg>
       ))}
       {overflow > 0 && <span>+{formatCount(overflow)}</span>}
@@ -109,48 +107,50 @@ function Money({ id, label, value, onChange, example, note, large }: {
   );
 }
 
-function Past({ snapshot, unit, pay, overridden, printed, hidden }: {
+type PastResult = ReturnType<typeof comparePast> | null;
+type PastForm = { monthNumber: string; year: string; oldPayText: string };
+
+function Past({ snapshot, unit, overridden, printed, hidden, form, onForm, month, comparison, onOpen }: {
   snapshot: Snapshot;
   unit: UnitSlug;
-  pay: number;
   overridden: boolean;
   printed: string;
   hidden: boolean;
+  form: PastForm;
+  onForm: (change: Partial<PastForm>) => void;
+  month: string | null;
+  comparison: PastResult;
+  onOpen: (open: boolean) => void;
 }) {
-  const [monthNumber, setMonthNumber] = useState("");
-  const [year, setYear] = useState("");
-  const [oldPayText, setOldPayText] = useState("");
+  const { monthNumber, year, oldPayText } = form;
 
   // Years before the data start stay on the list, so they get the refusal instead of a silent limit.
   const lastYear = Number(snapshot.lastMonth.slice(0, 4));
   const years = Array.from({ length: lastYear - 2009 }, (_, index) => lastYear - index);
 
-  const month = monthNumber && year ? year + monthNumber : null;
   const check = month ? checkPastMonth(snapshot, month) : null;
-  const oldPay = amountOf(oldPayText);
-  const comparison = month && oldPay !== null ? comparePast(snapshot, { unit, pay, oldPay, month }) : null;
 
   return (
-    <details hidden={hidden}>
+    <details hidden={hidden} onToggle={(event) => onOpen(event.currentTarget.open)}>
       <summary>¿Y antes?</summary>
       <div className="panel">
         <div className="when">
           <div>
             <label htmlFor="past-month">Mes</label>
-            <select id="past-month" value={monthNumber} onChange={(event) => setMonthNumber(event.target.value)}>
+            <select id="past-month" value={monthNumber} onChange={(event) => onForm({ monthNumber: event.target.value })}>
               <option value="">Elegí</option>
               {MONTH_NAMES.map((name, index) => <option key={name} value={String(index + 1).padStart(2, "0")}>{name}</option>)}
             </select>
           </div>
           <div>
             <label htmlFor="past-year">Año</label>
-            <select id="past-year" value={year} onChange={(event) => setYear(event.target.value)}>
+            <select id="past-year" value={year} onChange={(event) => onForm({ year: event.target.value })}>
               <option value="">Elegí</option>
               {years.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </div>
         </div>
-        <Money id="past-pay" label="Lo que cobrabas ese mes" value={oldPayText} onChange={setOldPayText} example="30.000" />
+        <Money id="past-pay" label="Lo que cobrabas ese mes" value={oldPayText} onChange={(text) => onForm({ oldPayText: text })} example="30.000" />
         <div className="past" aria-live="polite">
           {check && Result.isFailure(check) && (
             <p>
@@ -172,13 +172,15 @@ function Past({ snapshot, unit, pay, overridden, printed, hidden }: {
   );
 }
 
-export function Calculator({ snapshot }: { snapshot: Snapshot }) {
+export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; sharedLine?: string }) {
   const [payText, setPayText] = useState("");
   // Last valid pay: half-typed text like 1.2 keeps the result on screen instead of flashing the opening state.
   const [pay, setPay] = useState<number | null>(null);
   const [preset, setPreset] = useState<Preset | null>(null);
   const [unit, setUnit] = useState<UnitSlug>("asado");
   const [overrideText, setOverrideText] = useState("");
+  const [pastForm, setPastForm] = useState<PastForm>({ monthNumber: "", year: "", oldPayText: "" });
+  const [pastOpen, setPastOpen] = useState(false);
 
   // Dims the old result only after a pause, so correct typing passing through 1.2 never flashes.
   const [settledText, setSettledText] = useState("");
@@ -197,6 +199,13 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   const overridePrice = amountOf(overrideText);
   const count = amount === null ? 0 : unitsFor(amount, overridePrice ?? priceOf(unit));
 
+  const pastMonth = pastForm.monthNumber && pastForm.year ? pastForm.year + pastForm.monthNumber : null;
+  const oldPay = amountOf(pastForm.oldPayText);
+  const comparison = pay !== null && pastMonth && oldPay !== null ? comparePast(snapshot, { unit, pay, oldPay, month: pastMonth }) : null;
+  // Only what the visitor can see goes out: a comparison folded away is not shared.
+  const pastShown = pastOpen && pastMonth && comparison && Result.isSuccess(comparison) ? { month: pastMonth, ...comparison.success } : null;
+  const target = pay !== null && preset === null && !stale ? shareTarget(shareResultFor(snapshot, { unit, pay, overridePrice, past: pastShown })) : null;
+
   const lead = preset === "cbtHogar2" ? "Por mes, la canasta de una familia tipo son"
     : preset === "crianzaMenor1" ? "Por mes, criar un bebé menor de 1 año son"
     : "Cobrás";
@@ -205,6 +214,7 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   return (
     <main className={stale ? "ticket stale" : "ticket"}>
       <h1>Cobro en Asado</h1>
+      {sharedLine && <p className="shared">{sharedLine}</p>}
 
       <section>
         <Money
@@ -284,6 +294,8 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
           )}
           <p className="printed">{printed}</p>
         </div>
+        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. */}
+        {amount !== null && <Share key={`${target?.path} ${payText} ${overrideText}`} target={target} comparing={pastShown !== null} />}
       </section>
 
       <section>
@@ -309,14 +321,18 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
       </section>
 
       <section className="more">
-        {/* Stays mounted so correcting the pay keeps its three fields. Hidden whenever pay is the placeholder 0. */}
+        {/* Stays mounted so correcting the pay keeps its three fields. */}
         <Past
           snapshot={snapshot}
           unit={unit}
-          pay={pay ?? 0}
           overridden={overridePrice !== null}
           printed={printed}
           hidden={pay === null || preset !== null}
+          form={pastForm}
+          onForm={(change) => setPastForm({ ...pastForm, ...change })}
+          month={pastMonth}
+          comparison={comparison}
+          onOpen={setPastOpen}
         />
         {amount !== null && (
           <details>
