@@ -72,7 +72,7 @@ h1 {
 
 .money label, .when label { font-weight: 800; text-wrap: balance; }
 
-.money-large label { font-size: 1.125rem; }
+.money-large label { font-size: 1.0625rem; }
 
 .field {
   display: flex;
@@ -108,15 +108,14 @@ h1 {
 
 .hint { font-weight: 800; font-size: 0.875rem; }
 
+/* Reserved, so the hint coming and going never moves the tile row under a finger. */
+.money-large .hint { min-height: 1.4em; }
+
 /* Result */
 
 .figures { container-type: inline-size; }
 
-/* A step after a delay, not movement, so it stays on under reduced motion. No transition back: valid text restores at once. */
-.stale .result, .stale .past {
-  opacity: 0.35;
-  transition: opacity 0s 0.7s;
-}
+.stale .result, .stale .past { opacity: 0.35; }
 
 .tagline {
   font-size: clamp(2rem, 9cqw, 3rem);
@@ -137,8 +136,8 @@ h1 {
 
 .big {
   display: block;
-  /* Fills the column for short counts and shrinks to fit the longest ones. */
-  font-size: min(13rem, calc(100cqw / (var(--chars) * 0.67)));
+  /* Sized for at least 3 characters, so 2 and 3 digit counts keep the tile row in one place. Longer counts shrink to fit. */
+  font-size: min(13rem, calc(100cqw / (max(3, var(--chars)) * 0.67)));
   line-height: 0.86;
   letter-spacing: -0.02em;
   /* Tabular figures carry side bearings; pull the first one back onto the text edge. */
@@ -196,7 +195,21 @@ button[aria-pressed="true"] {
   font-weight: 800;
 }
 
+.swipe {
+  display: none;
+  margin-left: 0.5ch;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Desktop has room for the whole ticket, so the printed line stays on the first screen and the tiles follow it. */
+@media (min-width: 601px) {
+  #units-label, .units { order: 1; }
+}
+
 @media (max-width: 600px) {
+  .swipe { display: inline; }
+
   .units {
     flex-wrap: nowrap;
     overflow-x: auto;

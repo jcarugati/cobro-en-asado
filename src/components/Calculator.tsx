@@ -19,6 +19,12 @@ const PRESET_BUTTONS: { key: Preset; label: string }[] = [
 const STROKES = ["M3 2 2 28", "M10 1 11 29", "M17 3 16 28", "M24 1 25 29"];
 const STRIKE = "M-1 24 28 6";
 
+// The row remounts after the opening state with its scroll reset. Not scrollIntoView, which can also scroll the page.
+function revealPressedTile(row: HTMLDivElement | null) {
+  const tile = row?.querySelector("[aria-pressed=true]");
+  if (row && tile) row.scrollLeft += tile.getBoundingClientRect().left - row.getBoundingClientRect().left - 16;
+}
+
 function amountOf(text: string): number | null {
   const parsed = parsePay(text);
   return Result.isSuccess(parsed) ? parsed.success : null;
@@ -75,11 +81,11 @@ function Money({ id, label, value, onChange, example, note, large }: {
   const invalid = Result.isFailure(parsed) && parsed.failure === "invalid";
   const [hint, setHint] = useState("");
 
-  // Typing 1.200.000 passes through invalid text like 1.2, so give it a moment before showing the hint.
+  // Typing 1.200.000 passes through invalid text like 1.2, so the hint waits for a pause in typing.
   useEffect(() => {
     const timer = setTimeout(() => setHint(invalid ? `Escribilo así: ${example}` : ""), invalid ? 700 : 0);
     return () => clearTimeout(timer);
-  }, [invalid, example]);
+  }, [invalid, example, value]);
 
   return (
     <div className={large ? "money money-large" : "money"}>
@@ -175,12 +181,19 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
   const [unit, setUnit] = useState<UnitSlug>("asado");
   const [overrideText, setOverrideText] = useState("");
 
+  // Dims the old result only after a pause, so correct typing passing through 1.2 never flashes.
+  const [settledText, setSettledText] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSettledText(payText), 700);
+    return () => clearTimeout(timer);
+  }, [payText]);
+
   const priceOf = (slug: UnitSlug) => snapshot.prices[slug].at(-1)!;
   const definition = UNITS.find((item) => item.slug === unit)!;
   const printed = `Promedio GBA · ${monthLabel(snapshot.lastMonth)} · INDEC`;
 
   const parsedPay = parsePay(payText);
-  const stale = Result.isFailure(parsedPay) && parsedPay.failure === "invalid" && pay !== null;
+  const stale = settledText === payText && Result.isFailure(parsedPay) && parsedPay.failure === "invalid" && pay !== null;
   const amount = preset ? snapshot.presets[preset].value : pay;
   const overridePrice = amountOf(overrideText);
   const count = amount === null ? 0 : unitsFor(amount, overridePrice ?? priceOf(unit));
@@ -207,7 +220,7 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
             setPreset(null);
             const parsed = parsePay(text);
             if (Result.isSuccess(parsed)) setPay(parsed.success);
-            else if (parsed.failure === "empty") {
+            else if (parsed.failure === "empty" || pay === null) {
               setPay(null);
               setOverrideText("");
             }
@@ -216,6 +229,8 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
       </section>
 
       <section className="figures">
+        {/* Its own live region above the tiles, so screen readers reach the result before 22 buttons. One string, so a change announces the sentence and not a bare number. */}
+        <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${formatCount(count)} ${tail}`}</p>
         {amount !== null && (
           <>
             {/* The animated number stays outside the live region, so only the final sentence is announced. */}
@@ -225,8 +240,8 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
               <span>{tail}</span>
             </p>
             {/* Outside the live region too, or the first announcement would read all 22 names. */}
-            <p id="units-label">Contalo en:</p>
-            <div className="tiles units" role="group" aria-labelledby="units-label">
+            <p id="units-label">Contalo en: <span className="swipe" aria-hidden="true">deslizá para ver más</span></p>
+            <div className="tiles units" role="group" aria-labelledby="units-label" ref={revealPressedTile}>
               {UNITS.map((item) => (
                 <button
                   key={item.slug}
@@ -255,11 +270,9 @@ export function Calculator({ snapshot }: { snapshot: Snapshot }) {
             </>
           ) : (
             <>
-              {/* One string, so a changed count announces the sentence and not a bare number. */}
-              <p className="sr-only">{`${lead} ${formatCount(count)} ${tail}`}</p>
-              <p className="alternate">O {countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.</p>
+              <p className="alternate">{`O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
               {preset === null && (
-                <p>Equivale al {formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA{ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.</p>
+                <p>{`Equivale al ${formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA${ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.`}</p>
               )}
               {preset === "cbtHogar2" && (
                 <p>Es la canasta básica total de un hogar de 4 en GBA{ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.</p>
