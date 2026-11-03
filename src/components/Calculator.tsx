@@ -97,9 +97,9 @@ function Money({ id, label, value, onChange, example, note, large }: {
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          // Not while typing: rewriting the text mid-edit makes the caret jump.
+          // Not while typing: rewriting the text mid-edit makes the caret jump. A tab switch also blurs, and the visitor may come back to keep typing.
           onBlur={() => {
-            if (withDots(value) !== value) onChange(withDots(value));
+            if (document.hasFocus() && withDots(value) !== value) onChange(withDots(value));
           }}
           aria-invalid={invalid}
           aria-describedby={`${id}-hint${note ? ` ${id}-note` : ""}`}

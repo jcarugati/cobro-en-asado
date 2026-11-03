@@ -20,17 +20,19 @@ All the math runs in the browser, and the pay is never sent anywhere. Share link
 
 ## Local development
 
+Needs Node 26. Dev and build need a key from https://api.indec.gob.ar; tests do not.
+
 ```sh
 npm ci
-with-indec npm run dev
+INDEC_API_KEY=<your key> npm run dev
 ```
 
-`with-indec` exposes `INDEC_API_KEY` to the command. On Vercel it is a sensitive, server-only env var.
+On Vercel the key is a sensitive, server-only env var. The owner's `with-indec` wrapper does the same as setting it by hand.
 
 Every PR passes this gate:
 
 ```sh
-npm run typecheck && npm test && with-indec npm run build
+npm run typecheck && npm test && INDEC_API_KEY=<your key> npm run build
 ```
 
 ## Key expiry

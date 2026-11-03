@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, monthIndex, priceAt, tally, unitsFor } from "../src/domain/calc.ts";
-import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../src/domain/format.ts";
+import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, priceMoveLine, unitLabel } from "../src/domain/format.ts";
 import { parsePay, withDots } from "../src/domain/pay.ts";
 import { decodeShareSegments, encodeSharePath, type ShareResult } from "../src/domain/share.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
@@ -124,15 +124,15 @@ it("builds the small copy helpers", () => {
 });
 
 describe("past comparison copy", () => {
-  const worst = { unit: "carne-picada", change: -0.5 } as const;
-  const best = { unit: "fideos", change: 0 } as const;
+  const worst = { unit: "carne-picada", change: -0.5, priceChange: 1 } as const;
+  const best = { unit: "fideos", change: 0, priceChange: 0.1 } as const;
   const base = { unitsThen: 161, unitsNow: 71, unitChange: 0, breakEven: 1986506, realChange: -0.396, worst, best };
   it("matches the agreed lines on the acceptance case", () => {
     const result = comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" });
     expect(pastLines("asado", "201901", Result.getOrThrow(result))).toEqual([
       "En enero de 2019 eran 161 kilos de asado. Hoy, 71.",
       "Para empatar con los precios en general, hoy tendrías que cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
-      "Lo que más subió: carne picada. Lo que menos subió: fideos.",
+      "Sin contar verduras, lo que más subió: carne picada. Lo que menos subió: fideos.",
     ]);
   });
   it("says arriba when real change is positive", () => {
@@ -143,6 +143,48 @@ describe("past comparison copy", () => {
   });
   it("agrees in the singular", () => {
     expect(pastLines("asado", "201901", { ...base, unitsThen: 1.2 })[0]).toBe("En enero de 2019 era 1 kilo de asado. Hoy, 71.");
+  });
+});
+
+describe("price move sentence", () => {
+  const lineFor = (from: Snapshot, month: string) => {
+    const { worst, best } = Result.getOrThrow(comparePast(from, { unit: "asado", pay: 1200000, oldPay: 30000, month }));
+    return { worst, best, line: priceMoveLine(worst, best) };
+  };
+  it("names a price that fell as falling", () => {
+    expect(lineFor(snapshot, "202603").line).toBe("Sin contar verduras, lo que más subió: queso. Lo que más bajó: asado.");
+    expect(lineFor(snapshot, "202603").best.priceChange * 100).toBeCloseTo(-5.3, 1);
+  });
+  it("uses both falling verbs when every price fell", () => {
+    // The fixture has no such month, so the last month drops every price from the one before, each by a different amount.
+    const prices = Object.fromEntries(UNITS.map((unit, index) => {
+      const series = snapshot.prices[unit.slug];
+      return [unit.slug, [...series.slice(0, -1), series.at(-2)! * (0.7 + index / 100)]];
+    })) as Snapshot["prices"];
+    expect(lineFor({ ...snapshot, prices }, "202608").line).toBe("Sin contar verduras, lo que menos bajó: desodorante. Lo que más bajó: asado.");
+  });
+  it("treats a flat price as neither rise nor fall on the side where it is the extreme", () => {
+    expect(priceMoveLine({ unit: "queso", change: 0, priceChange: 0 }, { unit: "asado", change: 0, priceChange: 0 }))
+      .toBe("Sin contar verduras, lo que menos bajó: queso. Lo que menos subió: asado.");
+  });
+  it("is true to the raw prices in every month of the fixture", () => {
+    const months = snapshot.ipc.slice(0, -1).map((_, index) => {
+      const total = 2016 * 12 + 11 + index;
+      return `${Math.floor(total / 12)}${String(total % 12 + 1).padStart(2, "0")}`;
+    });
+    expect(months).toHaveLength(117);
+    for (const month of months) {
+      const { worst, best, line } = lineFor(snapshot, month);
+      const moved = (slug: UnitSlug) => price(slug) / price(slug, month) - 1;
+      expect(worst.priceChange, month).toBeCloseTo(moved(worst.unit), 10);
+      expect(best.priceChange, month).toBeCloseTo(moved(best.unit), 10);
+      for (const unit of UNITS.filter((item) => !item.seasonal)) {
+        expect(moved(unit.slug), `${month} ${unit.slug}`).toBeLessThanOrEqual(worst.priceChange + 1e-12);
+        expect(moved(unit.slug), `${month} ${unit.slug}`).toBeGreaterThanOrEqual(best.priceChange - 1e-12);
+      }
+      expect(line, month).toContain(moved(worst.unit) > 0 ? "lo que más subió:" : "lo que menos bajó:");
+      expect(line, month).toContain(moved(best.unit) < 0 ? "Lo que más bajó:" : "Lo que menos subió:");
+    }
   });
 });
 

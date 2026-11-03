@@ -9,6 +9,7 @@ it("only the tap on Compartir can request anything", async () => {
     expect(source, name).not.toMatch(/next\/link|<img|preload|prefetch/i);
     expect(source.match(/\bfetch\(/g)?.length ?? 0, name).toBe(name === "Share.tsx" ? 1 : 0);
     if (name !== "Share.tsx") continue;
+    expect(source).not.toMatch(/useEffect\(\s*tap/);
     // The fetch lives in fetchThenSend, whose only caller is tap.
     expect(source.slice(source.indexOf("async function fetchThenSend"), source.indexOf("function tap()"))).toMatch(/\bfetch\(/);
     expect(source.match(/\bfetchThenSend\(/g)?.length).toBe(2);

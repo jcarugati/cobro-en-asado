@@ -28,7 +28,7 @@ export function checkPastMonth(snapshot: Snapshot, month: Month): Result.Result<
   return Result.succeed(month);
 }
 
-type UnitChange = { unit: UnitSlug; change: number };
+type UnitChange = { unit: UnitSlug; change: number; priceChange: number };
 export type PastComparison = {
   unitsThen: number;
   unitsNow: number;
@@ -52,6 +52,7 @@ export function comparePast(snapshot: Snapshot, input: {
       unit: unit.slug,
       change: unitsFor(input.pay, snapshot.prices[unit.slug][nowIndex]!)
         / unitsFor(input.oldPay, snapshot.prices[unit.slug][thenIndex]!) - 1,
+      priceChange: snapshot.prices[unit.slug][nowIndex]! / snapshot.prices[unit.slug][thenIndex]! - 1,
     }));
     const worst = changes.reduce((a, b) => b.change < a.change ? b : a);
     const best = changes.reduce((a, b) => b.change > a.change ? b : a);

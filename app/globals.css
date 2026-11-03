@@ -284,6 +284,11 @@ button[aria-pressed="true"] {
   .units button[aria-pressed="true"] { font-weight: inherit; }
 }
 
+/* Compact is for a mouse: a finger keeps the full target at any width. */
+@media (pointer: coarse) {
+  .units button { min-height: 44px; }
+}
+
 @media (max-width: 600px) {
   .swipe { display: inline; }
 

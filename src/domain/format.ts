@@ -33,14 +33,21 @@ export function unitLabel(unit: UnitSlug, count: number): string {
 
 export const countPhrase = (unit: UnitSlug, count: number): string => `${formatCount(count)} ${unitLabel(unit, count)}`;
 
+// Each verb follows that side's own sign, because over a short span even the top of the ranking can be a price that fell. Vegetables are outside the ranking but have tiles, so the sentence says so.
+export function priceMoveLine(worst: PastComparison["worst"], best: PastComparison["best"]): string {
+  const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
+  const top = worst.priceChange > 0 ? "lo que más subió" : "lo que menos bajó";
+  const bottom = best.priceChange < 0 ? "Lo que más bajó" : "Lo que menos subió";
+  return `Sin contar verduras, ${top}: ${name(worst.unit)}. ${bottom}: ${name(best.unit)}.`;
+}
+
 export function pastLines(unit: UnitSlug, month: Month, comparison: PastComparison): [string, string, string] {
   const { unitsThen, unitsNow, breakEven, realChange, worst, best } = comparison;
   const gap = formatPercent(realChange);
   const position = gap === "0,0\u00a0%" ? "Estás igual: ni arriba ni abajo." : `Estás un ${gap} ${realChange > 0 ? "arriba" : "abajo"}.`;
-  const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
   return [
     `En ${monthWithDe(month)} ${Math.round(unitsThen) === 1 ? "era" : "eran"} ${countPhrase(unit, unitsThen)}. Hoy, ${formatCount(unitsNow)}.`,
     `Para empatar con los precios en general, hoy tendrías que cobrar ${formatPesos(breakEven)}. ${position}`,
-    `Lo que más subió: ${name(worst.unit)}. Lo que menos subió: ${name(best.unit)}.`,
+    priceMoveLine(worst, best),
   ];
 }
