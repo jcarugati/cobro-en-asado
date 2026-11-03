@@ -52,6 +52,10 @@ type Snapshot = {
   lastMonth: Month                        // latest month common to prices and IPC
   prices: Record<UnitSlug, number[]>      // one per month, firstMonth..lastMonth, contiguous
   ipc: number[]                           // GBA general level, same indexing
+  wages: {
+    lastMonth: Month                      // latest common wage month, clipped to lastMonth
+    series: Record<WageKey, number[]>      // contiguous from firstMonth; may lag IPC/prices
+  }
   presets: {
     cbtHogar2: { month: Month; value: number }
     crianzaMenor1: { month: Month; value: number }
@@ -98,6 +102,7 @@ card image     /card/<the same segments>
 
 | Decision | Why |
 |---|---|
+| Charts include the national INDEC wage index as reference lines; IPIM is skipped; series use multiples | Owner requested wages despite the original exclusion in DESIGN.md. They describe reference series, never the visitor's salary history: own pay stays two points. Wholesale IPIM is outside this consumer-price comparison. Multiples (`x66`) read directly and match the existing `x121` copy, unlike base 100 |
 | `vercel.json` declares `framework: nextjs` | The project was created before any code and has no framework set |
 | npm and Vitest | Installed everywhere, and no build-script approvals to manage |
 | The only script is `scripts/write-snapshot-fixture.ts`, run with Node type stripping and relative `.ts` imports | It needs no runner dependency, only `@effect/platform-node` as a devDependency for `runMain` |

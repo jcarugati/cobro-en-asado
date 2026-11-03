@@ -1,3 +1,4 @@
+import { WAGES, type WageKey } from "../domain/wages.ts";
 import { Effect } from "effect";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
@@ -13,6 +14,11 @@ export const getSnapshot = Effect.gen(function*() {
     select: "periodo,valor", region: "eq.GBA", codigo: "eq.0",
     tipo_de_indicador: "eq.Indice", periodo: "gte.201612", order: "periodo",
   }, IndexRow);
+  const wages = yield* readRows("indice_salarios", {
+    select: "codigo,descripcion,tipo_de_indicador_descripcion,periodo,valor",
+    tipo_de_indicador: "eq.Indice", periodo: "gte.201612",
+    codigo: `in.(${WAGES.map((wage) => wage.code).join(",")})`, order: "periodo,codigo",
+  }, PriceRow);
   const cbt = yield* readRows("valorizacion_canastas_cba_cbt", {
     select: "periodo,valor", codigo: "eq.CBT H2", tipo_de_indicador: "eq.Hogar 2",
     order: "periodo.desc", limit: "1",
@@ -21,7 +27,7 @@ export const getSnapshot = Effect.gen(function*() {
     select: "Periodo,tot_men1", order: "Periodo.desc", limit: "1",
   }, CrianzaRow);
   return yield* Effect.try({
-    try: () => buildSnapshot(prices, ipc, cbt, crianza),
+    try: () => buildSnapshot(prices, ipc, cbt, crianza, wages),
     catch: (error) => error instanceof IndecError ? error
       : new IndecError({ tag: "Validation", endpoint: "snapshot", status: 0 }),
   });
@@ -30,6 +36,7 @@ export const getSnapshot = Effect.gen(function*() {
 function buildSnapshot(
   prices: readonly (typeof PriceRow.Type)[], ipc: readonly (typeof IndexRow.Type)[],
   cbt: readonly (typeof IndexRow.Type)[], crianza: readonly (typeof CrianzaRow.Type)[],
+  wages: readonly (typeof PriceRow.Type)[],
 ): Snapshot {
   function fail(detail: NonNullable<IndecError["detail"]>): never {
     throw new IndecError({ tag: "Validation", endpoint: "snapshot", status: 0, detail });
@@ -57,9 +64,23 @@ function buildSnapshot(
     if (indexes.has(month) || month < "201612") fail("ipc");
     indexes.set(month, positive(row.valor));
   }
+  const byWage = new Map(WAGES.map((wage) => [wage.code as string, new Map<string, number>()]));
+  for (const row of wages) {
+    const wage = WAGES.find((wage) => wage.code === row.codigo);
+    const values = byWage.get(row.codigo);
+    const month = checkMonth(row.periodo);
+    if (!wage || !values || row.descripcion !== wage.description ||
+      row.tipo_de_indicador_descripcion !== "Nivel del período, base octubre 2016=100" ||
+      values.has(month) || month < "201612") fail("wage");
+    values.set(month, positive(row.valor));
+  }
   const priceMonths = new Set(prices.map((row) => row.periodo));
   const lastMonth = [...indexes.keys()].filter((month) => priceMonths.has(month)).sort().at(-1);
   if (!lastMonth) fail("coverage");
+  const wageLastMonth = [...byWage.values()].reduce((last, values) => {
+    const latest = [...values.keys()].sort().at(-1) ?? "";
+    return latest < last ? latest : last;
+  }, lastMonth);
   const months: string[] = [];
   for (let year = 2016, month = 12; ; ) {
     const value = `${year}${String(month).padStart(2, "0")}`;
@@ -67,18 +88,21 @@ function buildSnapshot(
     months.push(value);
     if (++month === 13) { month = 1; year++; }
   }
-  const series = (values: Map<string, number>) => months.map((month) => {
+  const series = (values: Map<string, number>, end = lastMonth) => months.filter((month) => month <= end).map((month) => {
     const value = values.get(month);
     if (value === undefined) fail("gap");
     return value;
   });
   if (cbt.length !== 1 || crianza.length !== 1 || !cbt[0] || !crianza[0]) fail("preset");
-  // shortcut: stops large regressions, not a one-month step back; raise it if that ever matters.
-  if (lastMonth < "202609" || checkMonth(cbt[0].periodo) < "202609" || checkMonth(crianza[0].Periodo) < "202609") fail("floor");
+  // shortcut: price/preset 202609 and wage 202608 floors stop large regressions, not a one-month step back; raise them if that ever matters.
+  if (wageLastMonth < "202608" || lastMonth < "202609" || checkMonth(cbt[0].periodo) < "202609" || checkMonth(crianza[0].Periodo) < "202609") fail("floor");
   return {
     firstMonth: "201612", lastMonth,
     prices: Object.fromEntries(UNITS.map((unit) => [unit.slug, series(byUnit.get(unit.code)!)])) as Record<UnitSlug, number[]>,
     ipc: series(indexes),
+    wages: { lastMonth: wageLastMonth,
+      series: Object.fromEntries(WAGES.map((wage) => [wage.key, series(byWage.get(wage.code)!, wageLastMonth)])) as Record<WageKey, number[]>,
+    },
     presets: {
       cbtHogar2: { month: checkMonth(cbt[0].periodo), value: positive(cbt[0].valor) },
       crianzaMenor1: { month: checkMonth(crianza[0].Periodo), value: positive(crianza[0].tot_men1) },

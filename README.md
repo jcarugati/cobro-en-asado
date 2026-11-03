@@ -9,6 +9,7 @@ Type your monthly pay and see it in kilos of asado or 21 other INDEC-priced prod
 ## Data
 
 - Prices, IPC and baskets come from the official INDEC API (https://api.indec.gob.ar), called server-side only. The key never reaches the browser.
+- The national INDEC wage index supplies four chart reference series, with its own last available month.
 - Every response is validated into one snapshot before use.
 - Pages use daily ISR, and all of them read the snapshot through one shared `unstable_cache` entry, so a new share URL does not call INDEC.
 - When a refresh fails, the last good data keeps being served, with its month visible.

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { ConfigProvider, Effect, Result } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WAGES } from "../src/domain/wages.ts";
 import { UNITS } from "../src/domain/units.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
 import { PriceRow, readRows } from "../src/server/indec.ts";
@@ -21,17 +22,22 @@ const priceRows = () => months.flatMap((periodo, i) => UNITS.map((unit) => ({
   tipo_de_indicador_descripcion: unit.indecUnit as string,
 })));
 const indexRows = () => months.map((periodo, i) => ({ periodo, valor: fixture.ipc[i] }));
+const wageRows = () => months.slice(0, fixture.wages.series.general.length).flatMap((periodo, i) => WAGES.map((wage) => ({
+  codigo: wage.code as string, descripcion: wage.description as string, periodo,
+  valor: fixture.wages.series[wage.key][i] as number | null,
+  tipo_de_indicador_descripcion: "Nivel del período, base octubre 2016=100",
+})));
 type Price = ReturnType<typeof priceRows>[number];
 const fakeKey = "fake-secret-do-not-leak";
 const run = <A, E>(effect: Effect.Effect<A, E, import("effect/http/HttpClient").HttpClient>, fetch: typeof globalThis.fetch) => Effect.runPromise(Effect.result(effect.pipe(
   Effect.provide(FetchHttpClient.layer), Effect.provideService(FetchHttpClient.Fetch, fetch),
   Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown({ INDEC_API_KEY: fakeKey })),
 )));
-function mockFetch(prices: unknown[] = priceRows(), ipc: unknown[] = indexRows()) {
+function mockFetch(prices: unknown[] = priceRows(), ipc: unknown[] = indexRows(), wages: unknown[] = wageRows()) {
   return vi.fn<typeof globalThis.fetch>(async (input) => {
     const url = new URL(String(input));
     const endpoint = url.pathname.split("/").at(-1);
-    const rows = endpoint === "canasta-crianza"
+    const rows = endpoint === "indice_salarios" ? wages : endpoint === "canasta-crianza"
       ? [{ Periodo: fixture.presets.crianzaMenor1.month, tot_men1: fixture.presets.crianzaMenor1.value }]
       : endpoint === "valorizacion_canastas_cba_cbt"
       ? [{ periodo: fixture.presets.cbtHogar2.month, valor: fixture.presets.cbtHogar2.value }]
@@ -234,5 +240,54 @@ it("matches the committed fixture acceptance values and size", async () => {
   expect(fixture.presets.crianzaMenor1.value).toBe(570832);
   expect(fixture.firstMonth).toBe("201612");
   expect(fixture.lastMonth).toBe("202609");
-  expect(JSON.stringify(fixture).length).toBeLessThan(30000);
+  expect(JSON.stringify(fixture).length).toBeLessThan(35000);
+});
+
+describe("wage validation", () => {
+  const invalid: [string, string, (rows: ReturnType<typeof wageRows>) => void][] = [
+    ["unknown code", "wage", (rows) => { rows[0]!.codigo = "999"; }],
+    ["wrong description", "wage", (rows) => { rows[0]!.descripcion = "Wrong"; }],
+    ["wrong indicator", "wage", (rows) => { rows[0]!.tipo_de_indicador_descripcion = "Wrong"; }],
+    ["duplicate", "wage", (rows) => { rows.push({ ...rows[0]! }); }],
+    ["early month", "wage", (rows) => { rows[0]!.periodo = "201611"; }],
+    ["bad month", "month", (rows) => { rows[0]!.periodo = "202613"; }],
+    ["null", "value", (rows) => { rows[0]!.valor = null; }],
+    ["zero", "value", (rows) => { rows[0]!.valor = 0; }],
+    ["negative", "value", (rows) => { rows[0]!.valor = -1; }],
+    ["hole", "gap", (rows) => { rows.splice(4, 1); }],
+    ["floor", "floor", (rows) => { rows.splice(rows.length - 4, 4); }],
+    ["missing series", "floor", (rows) => { rows.splice(0, rows.length, ...rows.filter((row) => row.codigo !== "0")); }],
+  ];
+  it.each(invalid)("rejects %s", async (_, detail, mutate) => {
+    const rows = wageRows(); mutate(rows);
+    expect(await run(getSnapshot, mockFetch(priceRows(), indexRows(), rows))).toMatchObject({
+      _tag: "Failure", failure: { detail },
+    });
+  });
+  it("accepts the one-month lag and requests the four national index series", async () => {
+    const fetch = mockFetch();
+    const result = await run(getSnapshot, fetch);
+    expect(Result.isSuccess(result) && result.success).toEqual(fixture);
+    const url = new URL(String(fetch.mock.calls.find(([url]) => String(url).includes("indice_salarios"))![0]));
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      select: "codigo,descripcion,tipo_de_indicador_descripcion,periodo,valor",
+      codigo: "in.(0,110,120,200)", tipo_de_indicador: "eq.Indice", periodo: "gte.201612", order: "periodo,codigo",
+    });
+    expect(url.searchParams.has("region")).toBe(false);
+    expect(fixture.wages.lastMonth).toBe("202608");
+  });
+  it("clips to the earliest ending series and drops rows past the price/IPC end", async () => {
+    const rows = wageRows();
+    rows.push(...rows.slice(-4).map((row) => ({ ...row, periodo: "202609" })).filter((row) => row.codigo !== "200"));
+    rows.push(...rows.slice(0, 4).map((row) => ({ ...row, periodo: "202610" })).filter((row) => row.codigo !== "200"));
+    const result = await run(getSnapshot, mockFetch(priceRows(), indexRows(), rows));
+    expect(Result.isSuccess(result) && result.success).toEqual(fixture);
+  });
+  it("drops future wage rows even when all four series have them", async () => {
+    const rows = wageRows();
+    for (const periodo of ["202609", "202610"]) rows.push(...rows.slice(-4).map((row) => ({ ...row, periodo })));
+    const result = await run(getSnapshot, mockFetch(priceRows(), indexRows(), rows));
+    expect(Result.isSuccess(result) && result.success.wages.lastMonth).toBe("202609");
+    expect(Result.isSuccess(result) && result.success.wages.series.general).toHaveLength(fixture.ipc.length);
+  });
 });

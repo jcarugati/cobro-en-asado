@@ -1,5 +1,7 @@
 import type { PastComparison } from "./calc.ts";
-import type { Month } from "./snapshot.ts";
+import type { ChartData } from "./chart.ts";
+import { WAGES, type WageKey } from "./wages.ts";
+import type { Month, Snapshot } from "./snapshot.ts";
 import { UNITS, type UnitSlug } from "./units.ts";
 
 export const MONTH_NAMES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -52,4 +54,34 @@ export function pastLines(unit: UnitSlug, month: Month, comparison: PastComparis
     `Para empatar con los precios en general, hoy tendrías que cobrar ${formatPesos(breakEven)}. ${position}`,
     priceMoveLine(worst, best),
   ];
+}
+
+export function formatMultiple(value: number): string {
+  const rounded = Number(value.toFixed(value < 2 ? 2 : 1));
+  if (rounded >= 100) return `x${formatCount(value)}`;
+  return `x${value.toFixed(rounded >= 2 ? 1 : 2).replace(".", ",")}`;
+}
+
+export function chartSummary(snapshot: Snapshot, data: ChartData, unit: UnitSlug, wage: WageKey): string {
+  const definition = unitOf(unit);
+  const label = WAGES.find((item) => item.key === wage)!.label.toLowerCase();
+  const wageMultiple = data.wages.findLast((value) => value !== null)!;
+  const note = snapshot.wages.lastMonth < snapshot.lastMonth ? ` (hasta ${monthLabel(snapshot.wages.lastMonth)})` : "";
+  return `Desde ${monthLabel(data.months[0]!)}: ${definition.article} ${definition.tile.toLowerCase()} ${formatMultiple(data.product.at(-1)!)}, los precios en general ${formatMultiple(data.ipc.at(-1)!)} y los ${label} ${formatMultiple(wageMultiple)}${note}.`;
+}
+
+export function chartVerdict(data: ChartData, unit: UnitSlug, wage: WageKey): {
+  question: string; answer: "Sí" | "No" | "Empate";
+} {
+  const definition = unitOf(unit);
+  const label = WAGES.find((item) => item.key === wage)!.label.toLowerCase();
+  const pronoun = ["los", "las"].includes(definition.article) ? "les" : "le";
+  const article = definition.article === "el" ? "al" : `a ${definition.article}`;
+  const index = data.wages.findLastIndex((value) => value !== null);
+  const wages = data.wages[index]!;
+  const product = data.product[index]!;
+  return {
+    question: `¿Los ${label} ${pronoun} ganaron ${article} ${definition.tile.toLowerCase()}?`,
+    answer: formatMultiple(wages) === formatMultiple(product) ? "Empate" : wages > product ? "Sí" : "No",
+  };
 }

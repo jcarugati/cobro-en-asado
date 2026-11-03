@@ -5,7 +5,7 @@ export class IndecError extends Data.TaggedError("IndecError")<{
   tag: "Transport" | "Status" | "Timeout" | "Decode" | "Pagination" | "Validation" | "Config";
   endpoint: string;
   status: number;
-  detail?: "month" | "value" | "price" | "ipc" | "coverage" | "gap" | "preset" | "floor" | "unit";
+  detail?: "wage" | "month" | "value" | "price" | "ipc" | "coverage" | "gap" | "preset" | "floor" | "unit";
 }> {
   override get message() { return `${this.tag} ${this.endpoint} ${this.status}${this.detail ? ` ${this.detail}` : ""}`; }
 }
@@ -21,7 +21,7 @@ export const IndexRow = Schema.Struct({
 export const CrianzaRow = Schema.Struct({ Periodo: Schema.String, tot_men1: Schema.NullOr(Schema.Number) });
 
 export const readRows = <S extends Schema.Constraint & { readonly DecodingServices: never }>(
-  endpoint: "ipc_nacional" | "valorizacion_canastas_cba_cbt" | "canasta-crianza",
+  endpoint: "indice_salarios" | "ipc_nacional" | "valorizacion_canastas_cba_cbt" | "canasta-crianza",
   query: Record<string, string>, schema: S,
 ) => Effect.gen(function*() {
   const key = yield* Config.Redacted("INDEC_API_KEY").pipe(

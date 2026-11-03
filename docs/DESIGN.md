@@ -26,7 +26,7 @@ Type your monthly take-home pay and see it in kilos of asado, in the browser, as
 
 The trick: nobody posts their salary in pesos, but plenty of people will post it in asado.
 
-The second act compares the visitor's own past pay, with no wage index and no invented history:
+The second act compares the visitor's own past pay, with no invented history; the national wage index is a separate chart reference:
 
 > En enero de 2019 eran 161 kilos. Hoy, 71.
 > Para empatar con los precios en general, hoy deberías cobrar $1.986.506. Estás un 39,6 % abajo.
@@ -134,7 +134,7 @@ Use the code to query and assert the description at ingest. The UI labels (singu
 
 ## Out of scope
 
-- Wage index and any salary-history slider: it invents someone's earnings path.
+- Any salary-history slider or invented earnings path.
 - Region switch: asado isn't published outside GBA, and the other regions have only 14 products. First candidate after launch.
 - "Tu inflación" or any personal inflation rate.
 - Trueque as a separate picker, population, trade, poverty and activity data.
@@ -151,12 +151,15 @@ Use the code to query and assert the description at ingest. The UI labels (singu
 |---|---|---:|
 | Prices | `ipc_nacional?region=eq.GBA&tipo_de_indicador=eq.Precio promedio&periodo=gte.201612&codigo=in.(...)&order=periodo,codigo` | 2,596 (3 pages) |
 | Benchmark | `ipc_nacional?region=eq.GBA&codigo=eq.0&tipo_de_indicador=eq.Indice&periodo=gte.201612&order=periodo` | 118 |
+| Wage references | `indice_salarios?tipo_de_indicador=eq.Indice&periodo=gte.201612&codigo=in.(0,110,120,200)&order=periodo,codigo` | 468 |
 | Family preset | `valorizacion_canastas_cba_cbt?codigo=eq.CBT H2&tipo_de_indicador=eq.Hogar 2&order=periodo.desc&limit=1` | 1 |
 | Baby preset | `canasta-crianza?select=Periodo,tot_men1&order=Periodo.desc&limit=1` | 1 |
 
-That is about 6 requests per refresh.
+That is about 7 requests per refresh.
 
 ### Verified (live probes and measurements)
+
+- Wage index (2026-11-03): all four series are contiguous from 2016-12 through 2026-08 (117 months), one month behind prices/IPC. Coverage is national, not GBA; base October 2016=100.
 
 - 59 GBA products have peso prices from 2016-04 to 2026-09, with units unchanged. All 22 chosen products have no nulls in the 118 months from 2016-12.
 - GBA general IPC runs 2016-12 to 2026-09, base Dec 2016 = 100.
