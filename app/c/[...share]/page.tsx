@@ -28,5 +28,5 @@ export default async function SharedPage({ params }: Props) {
   const result = decodeShareSegments((await params).share);
   if (Option.isNone(result)) notFound();
   const snapshot = await loadSnapshot();
-  return <Calculator snapshot={snapshot} sharedLine={sharedLine(result.value)} />;
+  return <Calculator snapshot={snapshot} shared={result.value} />;
 }

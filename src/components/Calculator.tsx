@@ -1,14 +1,15 @@
 "use client";
 
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ChangeEvent, type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as Result from "effect/Result";
-import { altUnitOf, canastaShare, checkPastMonth, comparePast, TALLY_STRIKE, TALLY_STROKES, tally, unitsFor } from "../domain/calc.ts";
+import { altUnitOf, canastaShare, checkPastMonth, comparePast, iconGrid, unitsFor } from "../domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, MONTH_NAMES, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
-import { parsePay, withDots } from "../domain/pay.ts";
+import { caretAfterGrouping, groupWhileTyping, parsePay, withDots } from "../domain/pay.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
-import { shareResultFor, shareTarget } from "../domain/share.ts";
+import { cardLines, shareResultFor, sharedLine, sharedParts, shareTarget, type ShareResult } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
 import { Share } from "./Share.tsx";
+import { UnitIcon } from "./UnitIcon.tsx";
 
 type Preset = "cbtHogar2" | "crianzaMenor1";
 
@@ -17,32 +18,30 @@ const PRESET_BUTTONS: { key: Preset; label: string }[] = [
   { key: "crianzaMenor1", label: "Criar un bebé" },
 ];
 
-// The row remounts after the opening state with its scroll reset. Not scrollIntoView, which can also scroll the page.
-function revealPressedTile(row: HTMLDivElement | null) {
-  const tile = row?.querySelector("[aria-pressed=true]");
-  if (row && tile) row.scrollLeft += tile.getBoundingClientRect().left - row.getBoundingClientRect().left - 16;
-}
+const FEATURED: readonly UnitSlug[] = ["asado", "yerba", "cerveza", "vino", "dulce-de-leche", "panales"];
+const tileOf = (slug: UnitSlug) => UNITS.find((item) => item.slug === slug)!.tile;
 
 function amountOf(text: string): number | null {
   const parsed = parsePay(text);
   return Result.isSuccess(parsed) ? parsed.success : null;
 }
 
-function BigNumber({ value }: { value: number }) {
+function BigNumber({ value, from }: { value: number; from: number }) {
   const target = Math.round(value);
-  const [shown, setShown] = useState(0);
+  const [shown, setShown] = useState(from);
 
   useLayoutEffect(() => {
-    const from = shown;
+    const start = shown;
+    if (start === target) return;
     // The size is fitted to the target, so counting down through longer numbers would overflow.
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || formatCount(from).length > formatCount(target).length) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || formatCount(start).length > formatCount(target).length) {
       setShown(target);
       return;
     }
-    const start = performance.now();
+    const began = performance.now();
     let frame = requestAnimationFrame(function step(now) {
-      const progress = Math.min(1, Math.max(0, (now - start) / 350));
-      setShown(Math.round(from + (target - from) * (1 - (1 - progress) ** 3)));
+      const progress = Math.min(1, Math.max(0, (now - began) / 650));
+      setShown(Math.round(start + (target - start) * (1 - (1 - progress) ** 3)));
       if (progress < 1) frame = requestAnimationFrame(step);
     });
     return () => cancelAnimationFrame(frame);
@@ -51,16 +50,13 @@ function BigNumber({ value }: { value: number }) {
   return <span className="big">{formatCount(shown)}</span>;
 }
 
-function Tally({ count }: { count: number }) {
-  const { groups, overflow } = tally(count);
+function Tray({ unit, count }: { unit: UnitSlug; count: number }) {
+  const { icons, columns } = iconGrid(count);
   return (
-    <div className="tally" aria-hidden="true">
-      {groups.map((marks, index) => (
-        <svg key={index} viewBox="-3 0 34 30" width="34" height="30">
-          <path d={marks === 5 ? `${TALLY_STROKES.join(" ")} ${TALLY_STRIKE}` : TALLY_STROKES.slice(0, marks).join(" ")} />
-        </svg>
+    <div className="tray" aria-hidden="true" style={{ "--columns": columns, "--rows": Math.max(1, Math.ceil(icons / columns)) } as CSSProperties}>
+      {Array.from({ length: icons }, (_, index) => (
+        <span key={index} style={{ "--index": index } as CSSProperties}><UnitIcon unit={unit} /></span>
       ))}
-      {overflow > 0 && <span>+{formatCount(overflow)}</span>}
     </div>
   );
 }
@@ -78,11 +74,31 @@ function Money({ id, label, value, onChange, example, note, large }: {
   const invalid = Result.isFailure(parsed) && parsed.failure === "invalid";
   const [hint, setHint] = useState("");
 
-  // Typing 1.200.000 passes through invalid text like 1.2, so the hint waits for a pause in typing.
+  // Typing 1.200.000 with its dots passes through invalid text like 1.2, so the hint waits for a pause in typing.
   useEffect(() => {
     const timer = setTimeout(() => setHint(invalid ? `Escribilo así: ${example}` : ""), invalid ? 700 : 0);
     return () => clearTimeout(timer);
   }, [invalid, example, value]);
+
+  function regroup(event: ChangeEvent<HTMLInputElement>) {
+    const field = event.currentTarget;
+    const typed = field.value;
+    const { inputType } = event.nativeEvent as InputEvent;
+    // A paste may carry a decimal point, so it only gets dots if it already parses.
+    if (inputType === "insertFromPaste" || inputType === "insertFromDrop") return onChange(withDots(typed));
+    // Deleting from a valid amount only leaves its own group dots. Anything else may hold a dot meant as a decimal point.
+    const grouped = groupWhileTyping(typed, invalid || !inputType?.startsWith("delete"));
+    if (grouped !== typed) {
+      const kept = typed.slice(0, field.selectionStart ?? typed.length).replace(/\./g, "").length;
+      const caret = caretAfterGrouping(grouped, kept);
+      // Delete steps over a dot, or it would stop there forever.
+      const at = inputType === "deleteContentForward" && grouped[caret] === "." ? caret + 1 : caret;
+      // Written here so React finds it already done and leaves the caret alone.
+      field.value = grouped;
+      field.setSelectionRange(at, at);
+    }
+    onChange(grouped);
+  }
 
   return (
     <div className={large ? "money money-large" : "money"}>
@@ -94,19 +110,100 @@ function Money({ id, label, value, onChange, example, note, large }: {
           id={id}
           inputMode="numeric"
           autoComplete="off"
+          autoFocus={large}
           spellCheck={false}
+          placeholder={large ? example : undefined}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          // Not while typing: rewriting the text mid-edit makes the caret jump. A tab switch also blurs, and the visitor may come back to keep typing.
-          onBlur={() => {
-            if (document.hasFocus() && withDots(value) !== value) onChange(withDots(value));
-          }}
+          onChange={regroup}
           aria-invalid={invalid}
           aria-describedby={`${id}-hint${note ? ` ${id}-note` : ""}`}
         />
       </div>
       {note && <p id={`${id}-note`} className="note">{note}</p>}
       <p id={`${id}-hint`} className="hint" aria-live="polite">{hint}</p>
+    </div>
+  );
+}
+
+function UnitPicker({ unit, onPick }: { unit: UnitSlug; onPick: (slug: UnitSlug) => void }) {
+  const sheet = useRef<HTMLDialogElement>(null);
+  const row = useRef<HTMLDivElement>(null);
+  // Its 22 icons wait for the first open: in the page's HTML they cost a round trip on every visit, and few visitors open it.
+  const [sheetOpened, setSheetOpened] = useState(false);
+  // A unit picked from the sheet takes the first place.
+  const shown = FEATURED.includes(unit) ? FEATURED : [unit, ...FEATURED.slice(0, -1)];
+
+  // A shared link or the sheet can pick a pill the row has scrolled away. Not scrollIntoView, which can also scroll the page. Más covers the row's right end, so a pill under it counts as hidden.
+  useEffect(() => {
+    const pill = row.current?.querySelector("[aria-pressed=true]");
+    const more = row.current?.lastElementChild;
+    if (!row.current || !pill || !more) return;
+    const { left, right } = pill.getBoundingClientRect();
+    const start = row.current.getBoundingClientRect().left + 16;
+    if (left < start || right > more.getBoundingClientRect().left) row.current.scrollLeft += left - start;
+  }, [unit]);
+
+  return (
+    <div className="picker">
+      <p id="units-label" className="caption">Contalo en:</p>
+      <div className="units" role="group" aria-labelledby="units-label" ref={row}>
+        {shown.map((slug) => (
+          <button
+            key={slug}
+            type="button"
+            className="pill"
+            aria-pressed={unit === slug}
+            onClick={() => onPick(slug)}
+            onFocus={(event) => {
+              // Browsers leave a partly visible pill cut off. Keyboard only: moving it under a pressed pointer would lose the click.
+              if (event.currentTarget.matches(":focus-visible")) event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }}
+          >
+            <UnitIcon unit={slug} />
+            {tileOf(slug)}
+          </button>
+        ))}
+        <div className="more-slot">
+          <button
+            type="button"
+            className="pill pill-more"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setSheetOpened(true);
+              sheet.current?.showModal();
+            }}
+          >
+            Más
+          </button>
+        </div>
+      </div>
+      {/* The body is inside the dialog's edge, so a click that lands on the dialog itself is a click on the backdrop. */}
+      <dialog ref={sheet} className="sheet" aria-labelledby="sheet-title" onClick={(event) => { if (event.target === sheet.current) sheet.current?.close(); }}>
+        <div className="sheet-body">
+          <div className="sheet-top">
+            <h2 id="sheet-title">Contalo en</h2>
+            <button type="button" className="sheet-close" aria-label="Cerrar" onClick={() => sheet.current?.close()}>×</button>
+          </div>
+          {sheetOpened && (
+            <div className="sheet-units">
+              {UNITS.map((item) => (
+                <button
+                  key={item.slug}
+                  type="button"
+                  aria-pressed={unit === item.slug}
+                  onClick={() => {
+                    onPick(item.slug);
+                    sheet.current?.close();
+                  }}
+                >
+                  <UnitIcon unit={item.slug} />
+                  {item.tile}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </dialog>
     </div>
   );
 }
@@ -167,7 +264,7 @@ function Past({ snapshot, unit, overridden, printed, hidden, form, onForm, month
             <>
               {pastLines(unit, month, comparison.success).map((line) => <p key={line}>{line}</p>)}
               {overridden && <p>Esta comparación usa precios INDEC en los dos meses, no el de tu carnicería.</p>}
-              <p className="printed">{printed}</p>
+              <p className="note">{printed}</p>
             </>
           )}
         </div>
@@ -176,18 +273,18 @@ function Past({ snapshot, unit, overridden, printed, hidden, form, onForm, month
   );
 }
 
-export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; sharedLine?: string }) {
+export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: ShareResult }) {
   const [payText, setPayText] = useState("");
   // Last valid pay: half-typed text like 1.2 keeps the result on screen instead of flashing the opening state.
   const [pay, setPay] = useState<number | null>(null);
   const [preset, setPreset] = useState<Preset | null>(null);
   const beforePreset = useRef<{ text: string; pay: number | null }>({ text: "", pay: null });
-  const [unit, setUnit] = useState<UnitSlug>("asado");
+  const [unit, setUnit] = useState<UnitSlug>(shared?.unit ?? "asado");
   const [overrideText, setOverrideText] = useState("");
   const [pastForm, setPastForm] = useState<PastForm>({ monthNumber: "", year: "", oldPayText: "" });
   const [pastOpen, setPastOpen] = useState(false);
 
-  // Dims the old result only after a pause, so correct typing passing through 1.2 never flashes.
+  // Dims the old result only after a pause, so correct typing passing through invalid text never flashes.
   const [settledText, setSettledText] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setSettledText(payText), 700);
@@ -216,12 +313,16 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
     : "Cobrás";
   const tail = `${unitLabel(unit, count)}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
 
-  return (
-    <main className={stale ? "ticket stale" : "ticket"}>
-      <h1>Cobro en Asado</h1>
-      {sharedLine && <p className="shared">{sharedLine}</p>}
+  // Until the visitor has a number, the card holds the shared result, or the shape of the result to come.
+  const friend = amount === null && shared?.unit === unit ? { ...sharedParts(shared), footer: cardLines(shared).footer } : null;
+  const shownCount = friend ? friend.count : count;
+  const each = amount === null && !friend ? 1 : iconGrid(shownCount).each;
 
-      <section>
+  return (
+    <main className={stale ? "app stale" : "app"}>
+      <div className="controls">
+        <h1 className="brand"><UnitIcon unit="asado" />Cobro en Asado</h1>
+        {shared && <p className="shared">{sharedLine(shared)}</p>}
         <Money
           id="pay"
           large
@@ -240,48 +341,45 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
             }
           }}
         />
-      </section>
+        <UnitPicker
+          unit={unit}
+          onPick={(slug) => {
+            setUnit(slug);
+            if (slug !== unit) setOverrideText("");
+          }}
+        />
+      </div>
 
-      <section className="figures">
-        {/* Its own live region above the tiles, so screen readers reach the result before 22 buttons. One string, so a change announces the sentence and not a bare number. */}
+      <section className="result">
+        {/* Its own live region, so screen readers reach the result in one sentence. The animated number stays outside it, so only the final sentence is announced. */}
         <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${formatCount(count)} ${tail}`}</p>
-        {amount !== null && (
-          <>
-            {/* The animated number stays outside the live region, so only the final sentence is announced. */}
-            <p className="headline result" aria-hidden="true" style={{ "--chars": formatCount(count).length } as CSSProperties}>
-              <span>{lead}</span>
-              <BigNumber value={count} />
-              <span>{tail}</span>
-            </p>
-            {/* Outside the live region too, or the first announcement would read all 22 names. */}
-            <p id="units-label">Contalo en: <span className="swipe" aria-hidden="true">deslizá para ver más</span></p>
-            <div className="tiles units" role="group" aria-labelledby="units-label" ref={revealPressedTile}>
-              {UNITS.map((item) => (
-                <button
-                  key={item.slug}
-                  type="button"
-                  aria-pressed={unit === item.slug}
-                  onClick={() => {
-                    setUnit(item.slug);
-                    if (item.slug !== unit) setOverrideText("");
-                  }}
-                  onFocus={(event) => {
-                    // Browsers leave a partly visible tile cut off. Keyboard only: moving it under a pressed pointer would lose the click.
-                    if (event.currentTarget.matches(":focus-visible")) event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
-                  }}
-                >
-                  {item.tile}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        <div className="lines result" aria-live="polite">
+        <article className="card" style={{ "--chars": amount === null && !friend ? 2 : formatCount(shownCount).length } as CSSProperties}>
+          <div aria-hidden="true" className="card-top">
+            <span className="lead">{friend ? friend.lead : lead}</span>
+            <span className="stamp"><UnitIcon unit="asado" />Cobro en Asado</span>
+          </div>
+          <p aria-hidden="true" className="headline">
+            {amount === null && !friend
+              ? <span className="big big-unknown">¿?</span>
+              : <BigNumber value={shownCount} from={friend ? friend.count : 0} />}
+            <span className="unit">{friend ? friend.tail : amount === null ? `${definition.plural}.` : tail}</span>
+          </p>
+          {each > 1 && <p aria-hidden="true" className="legend">{`Cada ícono: ${countPhrase(unit, each)}.`}</p>}
+          {/* One tray per unit, so changing unit drops a new pile while typing only adds to it. */}
+          {amount === null && !friend
+            ? <div className="ghost"><Tray key={unit} unit={unit} count={18} /></div>
+            : <Tray key={unit} unit={unit} count={shownCount} />}
+          <div className="card-foot">
+            {/* A shared count comes from its own month's price, which may not be today's, and may be a butcher's. */}
+            {!friend && <p>{`Precio promedio: ${formatPesos(priceOf(unit))} por ${definition.priceUnit}.`}</p>}
+            <p>{friend ? friend.footer : printed}</p>
+          </div>
+        </article>
+        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: a regrouped text must not remount the button being tapped, or the tap is lost. */}
+        {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
+        <div className="facts" aria-live="polite">
           {amount === null ? (
-            <>
-              <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
-              <p>Un kilo de asado, precio promedio: {formatPesos(priceOf("asado"))}.</p>
-            </>
+            <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
           ) : (
             <>
               <p className="alternate">{`O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
@@ -294,23 +392,20 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
               {preset === "crianzaMenor1" && (
                 <p>Canasta de crianza{ownMonthNote(snapshot.presets.crianzaMenor1.month, snapshot.lastMonth)}: incluye el valor del tiempo de cuidado.</p>
               )}
-              <Tally count={count} />
             </>
           )}
-          {amount !== null && <p className="note">{`Precio promedio: ${formatPesos(priceOf(unit))} por ${definition.priceUnit}.`}</p>}
-          <p className="printed">{printed}</p>
         </div>
-        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: dots added on blur must not remount the button being tapped, or the tap is lost. */}
-        {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
       </section>
 
-      <section>
-        <p id="presets-label">¿Preferís no escribirlo? Probá con:</p>
-        <div className="tiles" role="group" aria-labelledby="presets-label">
+      <section className="extras">
+      <div className="presets">
+        <p id="presets-label" className="caption">¿Preferís no escribirlo? Probá con:</p>
+        <div className="chips" role="group" aria-labelledby="presets-label">
           {PRESET_BUTTONS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
+              className="chip"
               aria-pressed={preset === key}
               onClick={() => {
                 if (preset === key) {
@@ -331,9 +426,7 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
             </button>
           ))}
         </div>
-      </section>
-
-      <section className="more">
+      </div>
         {/* Stays mounted so correcting the pay keeps its three fields. */}
         <Past
           snapshot={snapshot}
@@ -354,7 +447,7 @@ export function Calculator({ snapshot, sharedLine }: { snapshot: Snapshot; share
               <Money
                 id="override"
                 label={`Precio por ${definition.priceUnit}`}
-                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y los palitos.`}
+                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y los íconos.`}
                 example={formatCount(priceOf(unit))}
                 value={overrideText}
                 onChange={setOverrideText}

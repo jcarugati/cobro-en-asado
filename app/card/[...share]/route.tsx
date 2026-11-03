@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ shar
   if (request.url.includes("?") || Option.isNone(result)) {
     return new Response("Not found", { status: 404, headers: { "Cache-Control": "public, s-maxage=86400" } });
   }
-  return renderCard(cardLines(result.value), {
+  return renderCard(result.value.unit, cardLines(result.value), {
     headers: { "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable" },
   });
 }

@@ -2,9 +2,9 @@ import { readFile, readdir } from "node:fs/promises";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
-import { altUnitOf, canastaShare, checkPastMonth, comparePast, monthIndex, priceAt, tally, unitsFor } from "../src/domain/calc.ts";
+import { altUnitOf, canastaShare, checkPastMonth, comparePast, iconGrid, monthIndex, priceAt, unitsFor } from "../src/domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, priceMoveLine, unitLabel } from "../src/domain/format.ts";
-import { parsePay, withDots } from "../src/domain/pay.ts";
+import { caretAfterGrouping, groupWhileTyping, parsePay, withDots } from "../src/domain/pay.ts";
 import { decodeShareSegments, encodeSharePath, type ShareResult } from "../src/domain/share.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
 import { UNITS, type UnitSlug } from "../src/domain/units.ts";
@@ -17,7 +17,7 @@ describe("pay parser", () => {
   it.each([
     ["1200000", "1.200.000"], ["1.200.000", "1.200.000"], ["$ 1200000", "1.200.000"], ["800", "800"], ["1000000000000", "1.000.000.000.000"],
     ["1200000,50", "1200000,50"], ["1200,00", "1200,00"], ["800 mil", "800 mil"], ["1.2", "1.2"], ["0", "0"], ["", ""],
-  ])("on blur shows %j as %j", (input, shown) => expect(withDots(input)).toBe(shown));
+  ])("a paste shows %j as %j", (input, shown) => expect(withDots(input)).toBe(shown));
   it.each([
     ["1.200.000", 1200000], ["1200000", 1200000], ["$ 1.200.000", 1200000],
     ["1.200.000,50", 1200000.5], ["1200000,5", 1200000.5], ["1.200", 1200],
@@ -27,6 +27,33 @@ describe("pay parser", () => {
   it.each(["1,200,000", "1.2", "12.34", "1.2000", "abc", "-5", "0", "0,00", "1000000000000,01", "1,234", "1e3", "+1", "$$1", "1$", "1.000,", "Infinity",
     "1 2", "1\n200", "1, 20", "120000 80000", "1 200 000", "0.500", "0.001", "007",
   ])("refuses invalid %s", (input) => expect(parsePay(input)).toEqual(Result.fail("invalid")));
+});
+
+describe("typing a money field", () => {
+  it.each([
+    ["", ""], ["1", "1"], ["1200", "1.200"], ["1.2000", "12.000"], ["1200000", "1.200.000"], ["1.200", "1.200"], ["1..200", "1.200"], ["1.200.000", "1.200.000"],
+    ["1200,", "1.200,"], ["1200,5", "1.200,5"], ["1.200,50", "1.200,50"], [",5", "0,5"], ["007", "7"], ["0", "0"], ["0,5", "0,5"],
+    ["123456789012345678", "123.456.789.012.345.678"],
+  ])("regroups %j as %j", (typed, shown) => expect(groupWhileTyping(typed, true)).toBe(shown));
+  it.each(["1.", "1.2", "1.20", "1.200.", "1.200.0", "1.200.00", "1200000.5", "1200000.50", "1.200.000.50", "1.200.00.50"])("waits on a possible decimal point in %j, which parsePay refuses", (typed) => {
+    expect(groupWhileTyping(typed, true)).toBe(typed);
+    expect(Result.isFailure(parsePay(typed))).toBe(true);
+  });
+  it.each([
+    ["1.20", "120"], ["12.00", "1.200"], ["1.200.00", "120.000"], ["1200", "1.200"], ["12500.000", "12.500.000"], ["1.234.5", "12.345"], ["1.200.", "1.200"], ["1.", "1"], ["", ""],
+  ])("after a deletion from a valid amount regroups %j as %j", (typed, shown) => expect(groupWhileTyping(typed, false)).toBe(shown));
+  it("walks back a refused decimal without passing through a wrong number", () => {
+    const steps = ["1.200.000.5", "1.200.000.", "1.200.000"];
+    for (const text of steps) expect(groupWhileTyping(text, true)).toBe(text);
+    expect(parsePay(steps.at(-1)!)).toEqual(Result.succeed(1200000));
+  });
+  it.each(["1,200,000", "abc", "800 mil", "$ 1200", "1.200,50.", "-5"])("leaves %j as typed, so the hint can explain it", (typed) => {
+    expect(groupWhileTyping(typed, false)).toBe(typed);
+    expect(groupWhileTyping(typed, true)).toBe(typed);
+  });
+  it.each([
+    ["1.200", 0, 0], ["1.200", 1, 1], ["1.200", 2, 3], ["1.200", 4, 5], ["1.200", 9, 5], ["1.200.000", 4, 5], ["1.200,50", 5, 6], ["", 0, 0],
+  ])("in %j, past %i characters the caret sits at %i", (text, kept, caret) => expect(caretAfterGrouping(text, kept)).toBe(caret));
 });
 
 describe("fixture acceptance values", () => {
@@ -94,13 +121,20 @@ describe("months and alternate units", () => {
   });
 });
 
-it.each<[number, number[], number]>([
-  [0, [], 0], [1, [1], 0], [5, [5], 0], [71, [...Array<number>(14).fill(5), 1], 0],
-  [100, Array<number>(20).fill(5), 0], [101, Array<number>(20).fill(5), 1], [123, Array<number>(20).fill(5), 23],
-  [0.49, [], 0], [0.5, [1], 0], [71.5, [...Array<number>(14).fill(5), 2], 0],
-  [100.5, Array<number>(20).fill(5), 1], [-3, [], 0],
-])("tallies %s", (count, groups, overflow) => {
-  expect(tally(count)).toEqual({ groups, overflow });
+it.each([
+  [0, 0, 1, 6], [1, 1, 1, 6], [0.49, 0, 1, 6], [0.5, 1, 1, 6], [-3, 0, 1, 6], [71, 71, 1, 12], [71.5, 72, 1, 12], [100, 100, 1, 14],
+  [101, 51, 2, 10], [200, 100, 2, 14], [201, 41, 5, 9], [452, 91, 5, 14], [500, 100, 5, 14], [501, 51, 10, 10], [1000000, 100, 10000, 14],
+])("draws %s as %s icons of %s in %s columns", (count, icons, each, columns) => {
+  expect(iconGrid(count)).toEqual({ icons, each, columns });
+});
+
+it("never draws more than 100 icons, nor fewer than the count needs", () => {
+  for (const count of [1, 99, 100, 101, 999, 1001, 12345, 999999, 1e14]) {
+    const { icons, each } = iconGrid(count);
+    expect(icons).toBeLessThanOrEqual(100);
+    expect(icons * each).toBeGreaterThanOrEqual(count);
+    expect((icons - 1) * each).toBeLessThan(count);
+  }
 });
 
 it("formats deterministic Argentine text with rounding and NBSP", () => {

@@ -222,6 +222,8 @@ Visitor math runs on the visitor's device, so traffic adds transfer but no compu
 
 ## UI direction
 
+Superseded on 2026-11-03: the live look is `Bodegón`, see the decisions in `docs/PLAN.md`. Scope and copy rules below still hold.
+
 A butcher's ticket, not a dashboard.
 
 - One column, about 560 px wide, one screen until the visitor chooses to go further. The result is the page.

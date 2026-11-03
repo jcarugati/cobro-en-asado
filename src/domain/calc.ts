@@ -59,14 +59,17 @@ export function comparePast(snapshot: Snapshot, input: {
   });
 }
 
-// Slightly off-square on purpose: a printed ticket, tally added by hand. Shared by the page and the card.
-export const TALLY_STROKES = ["M3 2 2 28", "M10 1 11 29", "M17 3 16 28", "M24 1 25 29"];
-export const TALLY_STRIKE = "M-1 24 28 6";
+const MAX_ICONS = 100;
 
-export function tally(count: number): { groups: number[]; overflow: number } {
+// How many icons draw a count and how much each is worth. Steps of 1, 2, 5, 10... keep the legend easy to read. Columns fill a tray about 1.9 times wider than tall; six is the fewest so one icon never goes giant.
+export function iconGrid(count: number): { icons: number; each: number; columns: number } {
   const rounded = Math.max(0, Math.round(count));
-  const marks = Math.min(100, rounded);
-  const groups = Array<number>(Math.floor(marks / 5)).fill(5);
-  if (marks % 5 !== 0) groups.push(marks % 5);
-  return { groups, overflow: Math.max(0, rounded - 100) };
+  for (let scale = 1; ; scale *= 10) {
+    for (const step of [1, 2, 5]) {
+      const each = step * scale;
+      if (rounded > MAX_ICONS * each) continue;
+      const icons = Math.ceil(rounded / each);
+      return { icons, each, columns: Math.max(6, Math.ceil(Math.sqrt(icons * 1.9))) };
+    }
+  }
 }

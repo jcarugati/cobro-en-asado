@@ -1,32 +1,84 @@
+/* Tokens. The palette is the butcher's counter: paper, meat, bone and yolk. */
 :root {
-  color-scheme: light dark;
-  --paper: #f3e7d7;
-  --ink: #1c1713;
-  --muted: #5e5147;
-  --ember: #be3207;
+  color-scheme: light;
+  interpolate-size: allow-keywords;
+
+  --ground: #ffd9c4;
+  --raised: #ffeadd;
+  --line: #f3b79c;
+  --ink: #3a0d08;
+  --ink-soft: #6d2a1d;
+  --plate: #fff5e4;
+  --ghost: #a87d6e;
+  --card: #5c120c;
+  --on-card: #fff5e4;
+  --on-card-soft: #f7d3c4;
+  --yolk: #ffb627;
+  --yolk-deep: #b97a0c;
+  --on-yolk: #3a0d08;
+  --ember: #c9301c;
+  --pressed-edge: var(--card);
+
+  --display: var(--font-display), Georgia, serif;
+  --body: var(--font-body), system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 56px;
+
+  --radius-s: 12px;
+  --radius-m: 20px;
+  --radius-l: 32px;
+  --radius-full: 999px;
+
+  --shadow-press: 0 4px 0 var(--yolk-deep);
+  --shadow-float: 0 24px 64px rgb(58 13 8 / 0.35);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --quick: 160ms;
+  --slow: 280ms;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #24211e;
-    --ink: #f2e7d8;
-    --muted: #bbae9f;
-    --ember: #ff7b3f;
+    color-scheme: dark;
+    --ground: #1d0a07;
+    --raised: #311510;
+    --line: #4a2018;
+    --ink: #ffe9da;
+    --ink-soft: #e2b5a3;
+    --plate: #2a100b;
+    --ghost: #a5786a;
+    --card: #671a11;
+    --yolk-deep: #8a5a06;
+    --ember: #ff8257;
+    --pressed-edge: var(--yolk);
+    --shadow-float: 0 24px 64px rgb(0 0 0 / 0.55);
   }
 }
 
 * { box-sizing: border-box; }
 
+html { -webkit-text-size-adjust: 100%; }
+
+html:has(dialog[open]) { overflow: hidden; }
+
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--ground);
   color: var(--ink);
-  line-height: 1.4;
+  font: 500 1rem/1.45 var(--body);
   font-variant-numeric: tabular-nums;
-  word-spacing: 0.05em;
+  -webkit-font-smoothing: antialiased;
 }
 
 p { margin: 0; }
+
+a { color: inherit; }
 
 :focus-visible {
   outline: 3px solid var(--ember);
@@ -42,67 +94,95 @@ p { margin: 0; }
   white-space: nowrap;
 }
 
-.ticket {
-  max-width: 592px;
-  margin: 0 auto;
-  padding: 16px;
-}
+/* Page */
 
-.ticket > * + * {
-  border-top: 2px dotted var(--muted);
-}
-
-.ticket > section {
+.app {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  padding: 18px 0;
+  gap: var(--space-4);
+  max-width: 640px;
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-4) var(--space-6);
 }
 
-h1 {
+.controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+
+/* Two columns from here: everything stays in reach of the card, which stays in view. */
+@media (min-width: 960px) {
+  .app {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-rows: auto auto 1fr;
+    gap: var(--space-4) var(--space-7);
+    max-width: 1320px;
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .controls { grid-column: 1; gap: var(--space-4); }
+  .result { grid-column: 2; grid-row: 1 / -1; position: sticky; top: var(--space-5); align-self: start; }
+  .extras { grid-column: 1; }
+  footer { grid-column: 1; }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
-  padding-bottom: 12px;
-  font-size: 1rem;
-  font-weight: 800;
+  font: 400 1.25rem/1 var(--display);
+}
+
+.brand svg { width: 32px; height: 32px; }
+
+@media (min-width: 960px) {
+  .brand { font-size: 1.5rem; margin-bottom: var(--space-3); }
+  .brand svg { width: 40px; height: 40px; }
 }
 
 .shared {
-  padding-block: 14px;
-  font-size: 1.25rem;
-  font-weight: 800;
-  line-height: 1.2;
+  justify-self: start;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-m) var(--radius-m) var(--radius-m) var(--space-1);
+  background: var(--yolk);
+  color: var(--on-yolk);
+  font: 400 1.125rem/1.2 var(--display);
   text-wrap: balance;
 }
 
+.caption { color: var(--ink-soft); font-size: 0.875rem; }
+
 /* Money fields */
 
-.money { display: grid; gap: 6px; }
+.money { display: grid; gap: var(--space-2); }
 
-.money label, .when label { font-weight: 800; text-wrap: balance; }
+.money label, .when label { font-weight: 700; text-wrap: balance; }
 
-.money-large label { font-size: 1.0625rem; }
+.money-large label {
+  font: 400 clamp(1.5rem, 4vw, 3.5rem)/1.05 var(--display);
+  letter-spacing: -0.005em;
+}
 
 .field {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  border-bottom: 2px solid var(--ink);
-  font-weight: 800;
-  font-size: 1.25rem;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-s);
+  background: var(--plate);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-size: 1.125rem;
+  font-weight: 700;
+  transition: box-shadow var(--quick) var(--ease);
 }
 
-.money-large .field { font-size: 2rem; }
+.field:focus-within { box-shadow: inset 0 0 0 3px var(--ember); }
 
-.field:focus-within {
-  border-color: var(--ember);
-  box-shadow: 0 2px 0 var(--ember);
-}
+.field > span { color: var(--ember); }
 
 .field input {
   flex: 1;
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  min-height: 40px;
   padding: 0;
   border: 0;
   outline: 0;
@@ -110,274 +190,617 @@ h1 {
   color: inherit;
   font: inherit;
   font-variant-numeric: inherit;
+  caret-color: var(--ember);
 }
 
-.note, .printed { color: var(--muted); font-size: 0.875rem; }
-
-.hint { font-weight: 800; font-size: 0.875rem; }
-
-/* Keeps the pay note on one line at 360 px, by 1 px. A wrap would push the result 20 px down. */
-.money-large .note { word-spacing: 0; }
-
-/* Reserved, so the hint coming and going never moves the tile row under a finger. */
-.money-large .hint { min-height: 1.4em; }
-
-/* Result */
-
-.figures { container-type: inline-size; }
-
-.stale .result, .stale .past { opacity: 0.35; }
-
-.tagline {
-  font-size: clamp(2rem, 9cqw, 3rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
+.money-large .field {
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-m);
+  font: 400 clamp(2.5rem, 5vw, 4.5rem)/1.2 var(--display);
 }
 
-.headline {
-  /* Fills the column for up to 3 characters and shrinks to fit longer counts. */
-  --number: min(var(--cap, 13rem), 100cqw / (max(3, var(--chars)) * 0.67));
-  display: grid;
-  gap: 2px;
-  font-size: 1.625rem;
-  font-weight: 800;
-  line-height: 1.1;
-  text-wrap: balance;
-}
+.money-large .field:focus-within { box-shadow: inset 0 0 0 4px var(--ember); }
 
-.big {
-  display: block;
-  font-size: var(--number);
-  line-height: 0.86;
-  letter-spacing: -0.02em;
-  /* Tabular figures carry side bearings; pull the first one back onto the text edge. */
-  margin-left: -0.035em;
-  white-space: nowrap;
-}
+.field input::placeholder { color: var(--ghost); opacity: 1; }
 
-.lines { display: grid; gap: 8px; }
+.note { color: var(--ink-soft); font-size: 0.875rem; }
 
-/* A smaller number leaves its spare height above the lead, not inside the sentence, so every count keeps the tile row in place. */
-.headline > :first-child { margin-top: calc((min(var(--cap, 13rem), 100cqw / 2.01) - var(--number)) * 0.86); }
+.hint { font-weight: 700; font-size: 0.875rem; }
 
-.alternate { font-size: 1.25rem; font-weight: 800; }
+/* The hint takes the note's place, so neither moves what is below them. */
+.money:has(.hint:not(:empty)) .note { display: none; }
+.money:has(.note) .hint:empty { display: none; }
 
-.tally {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-  margin-block: 4px;
-  font-weight: 800;
-}
+/* Unit picker */
 
-.tally svg { display: block; }
-.tally svg:nth-child(3n) { transform: rotate(-3deg); }
-.tally svg:nth-child(3n + 1) { transform: rotate(2deg); }
+.picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
 
-.tally path {
-  fill: none;
-  stroke: var(--ember);
-  stroke-width: 2.6;
-  stroke-linecap: round;
-}
+.units { display: flex; gap: var(--space-2); }
 
-/* Share */
-
-.share {
-  display: grid;
-  gap: 8px;
-  padding-top: 8px;
-}
-
-.share .field {
-  font-size: 1rem;
-  font-weight: 400;
-}
-
-/* Reserved like the pay hint, so a status never moves what is below it. */
-.share .hint { min-height: 1.4em; }
-
-.share-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-/* Presets and unit tiles */
-
-.tiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-button {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--muted);
-  border-radius: 0;
+.pill, .chip, .sheet-units button, .sheet-close {
+  border: 0;
   background: none;
   color: inherit;
   font: inherit;
   cursor: pointer;
+  transition: background-color var(--quick) var(--ease), color var(--quick) var(--ease), scale var(--quick) var(--ease);
 }
 
-button[aria-pressed="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-  font-weight: 800;
-}
+.pill:active, .chip:active, .cta:active, .sheet-units button:active { scale: 0.97; }
 
-/* A link that does a button's job looks like one. */
-.share-actions a, a.print {
-  display: flex;
+.pill {
+  flex: none;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-1);
   min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--muted);
-  color: inherit;
-  text-align: center;
-  text-decoration: none;
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 700;
 }
 
-/* The one printed action on the ticket. */
-.print, a.print {
-  border-color: var(--ember);
-  background: var(--ember);
-  color: var(--paper);
-  font-weight: 800;
+.pill svg { width: 30px; height: 30px; }
+
+.pill[aria-pressed="true"] {
+  background: var(--card);
+  box-shadow: inset 0 0 0 2px var(--pressed-edge);
+  color: var(--on-card);
 }
 
-.swipe {
-  display: none;
-  margin-left: 0.5ch;
-  color: var(--muted);
-  font-size: 0.875rem;
+.pill-more { padding-inline: var(--space-4); }
+
+/* Opens something rather than picks something, and only the chevron says so. */
+.pill-more::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: var(--space-1);
+  border-right: 2px solid var(--ember);
+  border-bottom: 2px solid var(--ember);
+  rotate: -45deg;
 }
 
-/* Wrapped and compact, so the number, every tile and the printed line share the first screen at 1280x800. A pressed tile keeps its weight, or the wider text would rewrap the tiles after it. */
-@media (min-width: 601px) {
-  .ticket > section { padding-block: 12px; }
+/* The cream edge nearly vanishes on the light surfaces, so it gets a little lift. */
+.brand svg, .pill svg, .sheet-units svg { filter: drop-shadow(0 1px 1px rgb(58 13 8 / 0.3)); }
 
-  .headline { --cap: 12rem; }
-
-  .tally { column-gap: 6px; }
-
-  .tally svg {
-    width: auto;
-    height: 26px;
-  }
-
-  .units { gap: 4px; }
-
-  .units button {
-    min-height: 28px;
-    padding-inline: 8px;
-    font-size: 0.875rem;
-  }
-
-  .units button[aria-pressed="true"] { font-weight: inherit; }
-}
-
-/* Compact is for a mouse: a finger keeps the full target at any width. */
-@media (any-pointer: coarse) {
-  .units button {
-    min-width: 44px;
-    min-height: 44px;
-  }
-}
-
-@media (max-width: 600px) {
-  .swipe { display: inline; }
-
+/* A row on phones: the cut-off pill shows there is more, and Más stays pinned over it. The padding keeps focus rings unclipped. */
+@media (max-width: 959px) {
   .units {
-    flex-wrap: nowrap;
     overflow-x: auto;
-    /* Runs to the screen edge, where the cut-off tile shows there is more. The padding keeps focus rings unclipped. */
-    margin: -6px -16px;
-    padding: 6px 16px;
-    scroll-padding-inline: 16px;
-    scrollbar-width: thin;
-    gap: 4px;
+    margin: -6px calc(-1 * var(--space-4));
+    padding: 6px var(--space-4);
+    scroll-padding-inline: var(--space-4) 96px;
+    scrollbar-width: none;
   }
 
-  /* Tighter than desktop so a tile's text is visibly cut at the common phone widths (360, 375, 390, 393). */
-  .units button {
-    flex: none;
-    padding-inline: 10px;
+  .units::-webkit-scrollbar { display: none; }
+
+  /* The first screen is tight on a phone and the icons say it already. Still names the group for screen readers. */
+  .picker .caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
+
+  .more-slot {
+    position: sticky;
+    /* The sticky edge sits on the row's padding, so this reaches the screen edge. */
+    right: calc(-1 * var(--space-4));
+    flex: none;
+    display: flex;
+    margin-block: -6px;
+    margin-left: auto;
+    margin-right: calc(-1 * var(--space-4));
+    padding: 6px var(--space-4) 6px var(--space-6);
+    background: linear-gradient(to right, transparent, var(--ground) var(--space-5));
+  }
+}
+
+@media (min-width: 960px) {
+  .units { flex-wrap: wrap; }
+  .more-slot { display: contents; }
 }
 
 @media (hover: hover) {
-  button:hover, .share-actions a:hover, a.print:hover { border-color: var(--ink); text-decoration: underline; }
+  .pill:not([aria-pressed="true"]):hover,
+  .chip:not([aria-pressed="true"]):hover,
+  .sheet-units button:not([aria-pressed="true"]):hover { background: var(--plate); }
 }
+
+/* The sheet with every unit */
+
+.sheet {
+  width: min(600px, 100vw - 2 * var(--space-4));
+  max-height: min(85dvh, 720px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-l);
+  background: var(--ground);
+  color: var(--ink);
+  box-shadow: var(--shadow-float);
+  opacity: 0;
+  translate: 0 24px;
+  transition: opacity var(--slow) var(--ease), translate var(--slow) var(--ease), display var(--slow) allow-discrete, overlay var(--slow) allow-discrete;
+}
+
+.sheet[open] {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@starting-style {
+  .sheet[open] {
+    opacity: 0;
+    translate: 0 24px;
+  }
+}
+
+.sheet::backdrop {
+  background: rgb(58 13 8 / 0.5);
+  opacity: 0;
+  transition: opacity var(--slow) var(--ease), display var(--slow) allow-discrete, overlay var(--slow) allow-discrete;
+}
+
+.sheet[open]::backdrop { opacity: 1; }
+
+@starting-style {
+  .sheet[open]::backdrop { opacity: 0; }
+}
+
+.sheet-body { padding: var(--space-5); }
+
+.sheet-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.sheet-top h2 { margin: 0; font: 400 1.75rem/1 var(--display); }
+
+.sheet-close {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--raised);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.sheet-units {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-2);
+}
+
+.sheet-units button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-1);
+  min-height: 92px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-m);
+  background: var(--raised);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.sheet-units svg { width: 44px; height: 44px; }
+
+.sheet-units button[aria-pressed="true"] {
+  background: var(--card);
+  box-shadow: inset 0 0 0 2px var(--pressed-edge);
+  color: var(--on-card);
+}
+
+/* Slides up from the bottom edge on phones. */
+@media (max-width: 600px) {
+  .sheet {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    translate: 0 100%;
+  }
+
+  @starting-style {
+    .sheet[open] { translate: 0 100%; }
+  }
+
+  .sheet-body { padding: var(--space-4); }
+
+  /* Four across, so all 22 fit without scrolling inside the sheet. */
+  .sheet-units { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); }
+
+  .sheet-units button { min-height: 84px; font-size: 0.8125rem; }
+
+  .sheet-units svg { width: 38px; height: 38px; }
+}
+
+/* Presets */
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.chip {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--card);
+  box-shadow: inset 0 0 0 2px var(--pressed-edge);
+  color: var(--on-card);
+  text-decoration: none;
+}
+
+/* A finger gets the full target whatever the width. */
+@media (any-pointer: coarse) {
+  .chip { min-height: 44px; }
+}
+
+/* Result card */
+
+.result { display: grid; grid-template-columns: minmax(0, 1fr); }
+
+.card {
+  /* Gives up height on short screens, so Compartir stays near the first screen. */
+  --cap: min(160px, 19dvh);
+  /* Fills the card for up to 3 characters and shrinks to fit longer counts. */
+  --number: min(var(--cap), 100cqw / (max(2.4, var(--chars)) * 0.68));
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 470px;
+  /* The bottom keeps the source line clear of the share button overlapping the edge. */
+  padding: var(--space-4) var(--space-5) 36px;
+  border-radius: var(--radius-l);
+  background: var(--card);
+  color: var(--on-card);
+  transition: opacity var(--slow) var(--ease);
+}
+
+@media (min-width: 960px) {
+  .card {
+    --cap: min(236px, 27vh);
+    min-height: min(720px, 100dvh - 170px);
+    padding: var(--space-6) 40px 36px;
+    border-radius: 40px;
+  }
+}
+
+.stale .card, .stale .facts, .stale .past { opacity: 0.35; }
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.lead {
+  font: 400 clamp(1.25rem, 5cqw, 1.875rem)/1.1 var(--display);
+  text-wrap: balance;
+}
+
+.stamp {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--on-card-soft);
+  font: 400 0.8125rem/1 var(--display);
+}
+
+.stamp svg { width: 24px; height: 24px; }
+
+/* The face sits low in its line, so the top margin pulls the number up to the lead. */
+.headline { display: grid; margin-block: calc(var(--number) * -0.06) var(--space-3); }
+
+.big {
+  display: block;
+  font: 400 var(--number)/0.95 var(--display);
+  letter-spacing: -0.02em;
+  margin-left: -0.03em;
+  white-space: nowrap;
+}
+
+/* Smaller than a number, so its descender clears the unit, and the same height, so nothing moves when the number arrives. */
+.big-unknown {
+  font-size: calc(var(--number) * 0.8);
+  line-height: calc(0.95 / 0.8);
+  opacity: 0.4;
+}
+
+.unit {
+  color: var(--yolk);
+  font: 400 clamp(1.5rem, 7cqw, 2.75rem)/1.08 var(--display);
+  text-wrap: balance;
+}
+
+.legend {
+  margin-bottom: var(--space-2);
+  color: var(--on-card-soft);
+  font-size: 0.875rem;
+}
+
+.tray {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  align-content: start;
+}
+
+.tray span {
+  display: block;
+  /* A little bigger than its cell and tilted: a pile on a tray, not a table. */
+  margin: -7%;
+  animation: drop 420ms var(--ease) backwards;
+  animation-delay: calc(var(--index) * 7ms);
+}
+
+.tray span:nth-child(3n) { rotate: -5deg; }
+.tray span:nth-child(3n + 1) { rotate: 4deg; }
+.tray span:nth-child(5n) { rotate: -2deg; translate: 0 6%; }
+.tray span:nth-child(7n + 2) { translate: 4% -5%; }
+.tray span:nth-child(11n + 4) { rotate: 7deg; }
+
+.tray svg { display: block; width: 100%; }
+
+/* Shorter than a real pile, so the tagline under the card stays on the first screen. */
+.ghost {
+  max-height: 112px;
+  overflow: hidden;
+  opacity: 0.2;
+  mask-image: linear-gradient(to bottom, #000 50%, transparent);
+}
+.ghost span { animation: none; }
+
+@media (min-width: 960px) {
+  .ghost { max-height: 280px; }
+
+  /* A short laptop screen narrows the pile to the height left over, so the card shrinks and Compartir stays on the first screen. The floor keeps the icons readable, at the cost of a scroll on the shortest windows. */
+  .tray { max-width: max(240px, (100dvh - 470px) * var(--columns) / var(--rows)); }
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.6);
+  }
+}
+
+.card-foot {
+  display: grid;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: var(--space-4);
+  color: var(--on-card-soft);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+/* What the card leaves out */
+
+.facts { display: grid; gap: var(--space-1); margin-top: var(--space-4); }
+
+.alternate, .tagline { font: 400 1.375rem/1.15 var(--display); text-wrap: balance; }
+
+@media (min-width: 960px) {
+  .alternate, .tagline { font-size: 1.625rem; }
+}
+
+/* Share */
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--yolk);
+  box-shadow: var(--shadow-press);
+  color: var(--on-yolk);
+  font: 700 1.0625rem/1.1 var(--body);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: translate var(--quick) var(--ease), box-shadow var(--quick) var(--ease), scale var(--quick) var(--ease);
+}
+
+.cta svg { flex: none; }
+
+.cta:active { translate: 0 3px; box-shadow: 0 1px 0 var(--yolk-deep); scale: 1; }
+
+.cta-quiet {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  color: var(--ink);
+}
+
+.cta-quiet:active { box-shadow: inset 0 0 0 2px var(--ink); }
+
+@media (hover: hover) {
+  .cta:hover { translate: 0 -2px; box-shadow: 0 6px 0 var(--yolk-deep); }
+  .cta-quiet:hover { translate: none; box-shadow: inset 0 0 0 3px var(--ink); }
+}
+
+.share { display: grid; gap: var(--space-2); }
+
+/* The button overlaps the card's bottom edge, stuck on like a price tag. */
+.share-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: -26px;
+  padding-right: var(--space-4);
+}
+
+.share-row > p {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-top: 32px;
+  padding-left: var(--space-2);
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.share-row > .cta, .share-actions { flex: none; }
+
+/* A long button doesn't leave the warning room beside it on a phone. */
+@media (max-width: 480px) {
+  .share-row-long {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: var(--space-2);
+  }
+
+  .share-row-long > p { flex: none; width: 100%; padding-top: 0; }
+
+  .share-row-long .share-actions { justify-content: flex-end; }
+}
+
+.share-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.share-actions .cta { min-height: 48px; padding-inline: var(--space-4); font-size: 0.9375rem; }
+
+.share .hint:empty { display: none; }
 
 /* Disclosures */
 
-.ticket > .more {
-  gap: 0;
-  padding: 6px 0;
-}
+.extras { display: grid; grid-template-columns: minmax(0, 1fr); }
 
-details:not([hidden]) + details { border-top: 2px dotted var(--muted); }
+.extras .presets { margin-bottom: var(--space-4); }
+
+details { border-top: 2px solid var(--line); }
 
 summary {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 8px 0;
-  font-weight: 800;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 48px;
+  padding-block: var(--space-2);
+  font-weight: 700;
   cursor: pointer;
   list-style: none;
 }
 
 summary::-webkit-details-marker { display: none; }
 
-summary::before {
-  content: "+" / "";
-  width: 1ch;
-  color: var(--ember);
+summary::after {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-right: var(--space-1);
+  border-right: 2.5px solid var(--ember);
+  border-bottom: 2.5px solid var(--ember);
+  rotate: 45deg;
+  translate: 0 -2px;
+  transition: rotate var(--slow) var(--ease), translate var(--slow) var(--ease);
 }
 
-details[open] summary::before { content: "−" / ""; }
+details[open] summary::after { rotate: 225deg; translate: 0 2px; }
+
+/* Browsers without these open instantly, which is fine. */
+details::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size var(--slow) var(--ease), content-visibility var(--slow) allow-discrete;
+}
+
+details[open]::details-content { block-size: auto; }
 
 .panel {
   display: grid;
-  gap: 12px;
-  padding: 4px 0 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-5);
 }
 
-.past { display: grid; gap: 8px; }
+.past { display: grid; gap: var(--space-2); }
+
+.past p:first-child { font: 400 1.25rem/1.2 var(--display); text-wrap: balance; }
 
 .when {
   display: grid;
   grid-template-columns: 3fr 2fr;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
-.when > div { display: grid; gap: 6px; }
+.when > div { display: grid; gap: var(--space-2); }
 
 select {
   width: 100%;
-  min-height: 44px;
-  padding: 0 8px;
-  border: 1px solid var(--muted);
-  border-radius: 0;
-  background: var(--paper);
+  min-height: 48px;
+  padding: 0 34px 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-s);
+  background-color: var(--plate);
+  /* An ember chevron, since a native arrow can't take the theme. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23c9301c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  box-shadow: inset 0 0 0 2px var(--ink);
   color: inherit;
   font: inherit;
+  font-weight: 700;
+  appearance: none;
 }
 
 footer {
-  padding-top: 12px;
-  color: var(--muted);
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--line);
+  color: var(--ink-soft);
   font-size: 0.8125rem;
 }
 
-footer a { color: inherit; }
+/* Error pages */
+
+.plain {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 640px;
+  margin-inline: auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+.plain .card { gap: var(--space-4); min-height: 0; padding: var(--space-6); align-items: flex-start; }
+
+.plain .card > p:not(.message) { color: var(--on-card-soft); }
+
+.message { font: 400 clamp(2rem, 9cqw, 3rem)/1.05 var(--display); text-wrap: balance; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, ::backdrop, ::details-content {
+    animation: none !important;
+    transition: none !important;
+  }
+}

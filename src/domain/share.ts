@@ -32,9 +32,17 @@ export function encodeSharePath(result: ShareResult): Option.Option<string> {
   return Option.map(decodeShareSegments(segments), () => `/c/${segments.join("/")}`);
 }
 
+// The shared result split around its number, so the page can set the number big.
+export function sharedParts(result: ShareResult): { lead: string; count: number; tail: string } {
+  if (result.kind === "t") {
+    return { lead: "Alguien cobraba", count: result.thenCount, tail: `${unitLabel(result.unit, result.thenCount)} en ${result.thenMonth.slice(0, 4)}. Hoy, ${formatCount(result.nowCount)}.` };
+  }
+  return { lead: "Alguien cobra", count: result.count, tail: `${unitLabel(result.unit, result.count)}${result.kind === "o" ? " a precio de su carnicería" : ""}.` };
+}
+
 export function sharedLine(result: ShareResult): string {
-  if (result.kind === "t") return `Alguien cobraba ${countPhrase(result.unit, result.thenCount)} en ${result.thenMonth.slice(0, 4)}. Hoy, ${formatCount(result.nowCount)}. ¿Y vos?`;
-  return `Alguien cobra ${countPhrase(result.unit, result.count)}${result.kind === "o" ? " a precio de su carnicería" : ""}. ¿Y vos?`;
+  const { lead, count, tail } = sharedParts(result);
+  return `${lead} ${formatCount(count)} ${tail} ¿Y vos?`;
 }
 
 export type CardLines = {

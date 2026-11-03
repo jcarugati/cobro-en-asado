@@ -8,9 +8,9 @@ export function monthLabel(month: Month): string {
   return `${MONTH_NAMES[Number(month.slice(4)) - 1]} ${month.slice(0, 4)}`;
 }
 
-export function formatCount(n: number): string {
-  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
+export const groupDigits = (digits: string): string => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+export const formatCount = (n: number): string => groupDigits(String(Math.round(n)));
 
 export const formatPesos = (n: number): string => `$${formatCount(n)}`;
 
