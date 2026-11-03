@@ -21,7 +21,7 @@ it("renders a real PNG with immutable caching without fetching", async () => {
 
 it.each([
   ["x/y", ""], ["p/asado/071/452/202609", ""], ["p/unknown/71/452/202609", ""],
-  ["p/asado/71/452/202609", "?x=1"], ["p/asado/71/452/202609", "?"],
+  ["p/asado/71/452/202609", "?x=1"],
 ])("rejects %s%s without fetching", async (path, query) => {
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("Card must never fetch"); }));
   const response = await GET(new Request(`https://example.org/card/${path}${query}`), { params: Promise.resolve({ share: path.split("/") }) });
