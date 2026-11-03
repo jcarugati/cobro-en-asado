@@ -37,7 +37,8 @@ Every PR, before merge: `npm run typecheck && npm test && with-indec npm run bui
 
 | Path | Owner |
 |---|---|
-| `src/domain/**` (client-safe, no `Schema`) | T1, T2 |
+| `src/domain/**` (client-safe: pure functions plus `Option` and `Result`; no `Effect` runtime, no `Schema`) | T1, T2 |
+| The `Effect` runtime and `Schema` | `src/server/**` and scripts only |
 | `src/server/**`, `scripts/write-snapshot-fixture.ts`, the fixture | T1 |
 | `app/page.tsx`, `app/layout.tsx`, `app/globals.css`, `src/components/**`, fonts | T3 (T1 leaves a bare version), then T5 |
 | `app/c/**`, `app/card/**`, `app/opengraph-image*` | T4, then visuals in T5 |
@@ -84,6 +85,7 @@ card image     /card/<the same segments>
 - The share button builds `t` when `¿Y antes?` is showing, otherwise `o` when an override is active, otherwise `p`.
 - **Nothing is requested from `/c` or `/card` before the tap on `Compartir`.** No `<Link>` to them, no prefetch and no card preview `<img>`. A count implies the pay, so an early request would break `El número no sale de tu teléfono`.
 - Cards answer with `Cache-Control: public, max-age=31536000, s-maxage=31536000, immutable`. `next/og` defaults to `max-age=0`. After T4 merges, a second production request must show `x-vercel-cache: HIT`.
+- Fetching the card after the tap can use up the browser's activation window. On `NotAllowedError`, keep the fetched file and ask for a second tap, which shares it with no `await` first. On `AbortError` the visitor cancelled, so do nothing.
 - `next/og` cannot read WOFF2. The card route needs a `.ttf` or `.woff`, within its 500 KB bundle limit.
 - Every card ends with `Promedio GBA · <month> · INDEC`, including the second-act card, so each one shows GBA, the month and the source. The page footer says `Fuente: INDEC`.
 
@@ -102,7 +104,7 @@ card image     /card/<the same segments>
 | Next.js owns the entry point in routes | Matches the design and the Effect guidelines |
 | Share is offered for a typed pay only, not for presets | The card says `Cobro...`, which would be false for a preset. Preset cards are a follow-up |
 | INDEC terms checked 2026-11-03 | The API home page allows copying and redistribution when the primary source is cited, and `/ayuda/terminos` adds no restriction on reuse. `INDEC` stays on every result and card |
-| Client bundle limit: the app's own code, including `effect` modules, adds at most 30 KB gzip to T1's 135 KB baseline | The design asks to measure `effect` in the browser. T3 has the first client page, so it measures there |
+| Client bundle limit: the app's own code, including `effect` modules, adds at most 30 KB gzip to T1's 135 KB baseline | The design asks to measure `effect` in the browser. `next build` no longer prints sizes, so T3 and T5 each measure the way T1 did: the gzip size of the client chunks `/` loads, from the build output. `Option` plus `Result` cost about 8 KB, while the `Effect` runtime alone is about 32 KB, which is why `src/domain` stays free of it |
 | UI PRs get a Claude review only | Owner's routing for this build, which overrides the global rule asking for both reviewers. Non-UI PRs get both |
 | Review loop cap | Owner's rule for this build, which overrides the global "until no valid findings". Cheap low findings still get fixed |
 
