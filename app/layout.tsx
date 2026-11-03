@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cobro-en-asado.vercel.app"),
+  twitter: { card: "summary_large_image" },
   title: "Cobro en Asado",
   description: "Tu sueldo, en la unidad que entendemos todos: kilos de asado.",
 };

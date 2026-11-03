@@ -1,4 +1,6 @@
 import * as Option from "effect/Option";
+import { altUnitOf } from "./calc.ts";
+import { countPhrase, formatCount, monthLabel } from "./format.ts";
 import { MONTH_PATTERN, type Month } from "./snapshot.ts";
 import { UNITS, type UnitSlug } from "./units.ts";
 
@@ -28,4 +30,23 @@ export function encodeSharePath(result: ShareResult): Option.Option<string> {
     ? [result.kind, result.unit, String(result.thenCount), String(result.nowCount), result.thenMonth, result.month]
     : [result.kind, result.unit, String(result.count), String(result.altCount), result.month];
   return Option.map(decodeShareSegments(segments), () => `/c/${segments.join("/")}`);
+}
+
+export function sharedLine(result: ShareResult): string {
+  const count = result.kind === "t" ? result.nowCount : result.count;
+  return `Alguien cobra ${countPhrase(result.unit, count)}${result.kind === "o" ? " a precio de su carnicería" : ""}. ¿Y vos?`;
+}
+
+export function cardLines(result: ShareResult): { headline: string; detail: string | null; footer: string } {
+  return {
+    headline: result.kind === "t"
+      ? `En ${result.thenMonth.slice(0, 4)} cobraba ${countPhrase(result.unit, result.thenCount)}. Hoy, ${formatCount(result.nowCount)}.`
+      : `Cobro ${countPhrase(result.unit, result.count)} por mes${result.kind === "o" ? ", a precio de mi carnicería" : ""}.`,
+    detail: result.kind === "t" ? null : `(o ${countPhrase(altUnitOf(result.unit), result.altCount)})`,
+    footer: `Promedio GBA · ${monthLabel(result.month)} · INDEC`,
+  };
+}
+
+export function cardPath(result: ShareResult): Option.Option<string> {
+  return Option.map(encodeSharePath(result), (path) => path.replace("/c/", "/card/"));
 }
