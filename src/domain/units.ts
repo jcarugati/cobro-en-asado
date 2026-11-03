@@ -1,0 +1,26 @@
+export const UNITS = [
+  { slug: "asado", code: "01.1.2.1.02", description: "Asado", singular: "kilo de asado", plural: "kilos de asado", tile: "Asado", priceUnit: "kilo", seasonal: false },
+  { slug: "yerba", code: "01.2.1.1.12", description: "Yerba mate", singular: "paquete de yerba", plural: "paquetes de yerba", tile: "Yerba", priceUnit: "paquete de 500 g", seasonal: false },
+  { slug: "carne-picada", code: "01.1.2.1.08", description: "Carne picada común", singular: "kilo de carne picada", plural: "kilos de carne picada", tile: "Carne picada", priceUnit: "kilo", seasonal: false },
+  { slug: "pollo", code: "01.1.2.2.01", description: "Pollo entero", singular: "kilo de pollo", plural: "kilos de pollo", tile: "Pollo", priceUnit: "kilo", seasonal: false },
+  { slug: "salame", code: "01.1.2.6.09", description: "Salame", singular: "kilo de salame", plural: "kilos de salame", tile: "Salame", priceUnit: "kilo", seasonal: false },
+  { slug: "queso", code: "01.1.4.2.03", description: "Queso cremoso", singular: "kilo de queso cremoso", plural: "kilos de queso cremoso", tile: "Queso", priceUnit: "kilo", seasonal: false },
+  { slug: "manteca", code: "01.1.5.3.01", description: "Manteca", singular: "pan de manteca", plural: "panes de manteca", tile: "Manteca", priceUnit: "pan de 200 g", seasonal: false },
+  { slug: "dulce-de-leche", code: "01.1.4.3.05", description: "Dulce de leche", singular: "pote de dulce de leche", plural: "potes de dulce de leche", tile: "Dulce de leche", priceUnit: "pote de 400 g", seasonal: false },
+  { slug: "huevos", code: "01.1.4.4.01", description: "Huevos de gallina", singular: "docena de huevos", plural: "docenas de huevos", tile: "Huevos", priceUnit: "docena", seasonal: false },
+  { slug: "leche", code: "01.1.4.1.01", description: "Leche fresca entera sachet", singular: "litro de leche", plural: "litros de leche", tile: "Leche", priceUnit: "litro", seasonal: false },
+  { slug: "pan", code: "01.1.1.1.05", description: "Pan francés", singular: "kilo de pan", plural: "kilos de pan", tile: "Pan", priceUnit: "kilo", seasonal: false },
+  { slug: "fideos", code: "01.1.1.4.04", description: "Fideos secos tipo guisero", singular: "paquete de fideos", plural: "paquetes de fideos", tile: "Fideos", priceUnit: "paquete de 500 g", seasonal: false },
+  { slug: "cafe", code: "01.2.1.1.02", description: "Café molido", singular: "paquete de café", plural: "paquetes de café", tile: "Café", priceUnit: "paquete de 500 g", seasonal: false },
+  { slug: "cerveza", code: "02.1.3.1.01", description: "Cerveza en botella", singular: "litro de cerveza", plural: "litros de cerveza", tile: "Cerveza", priceUnit: "litro", seasonal: false },
+  { slug: "vino", code: "02.1.2.1.01", description: "Vino común", singular: "litro de vino", plural: "litros de vino", tile: "Vino", priceUnit: "litro", seasonal: false },
+  { slug: "gaseosa", code: "01.2.2.1.04", description: "Gaseosa base cola", singular: "botella de gaseosa", plural: "botellas de gaseosa", tile: "Gaseosa", priceUnit: "botella de 1,5 litros", seasonal: false },
+  { slug: "papa", code: "01.1.7.1.19", description: "Papa", singular: "kilo de papa", plural: "kilos de papa", tile: "Papa", priceUnit: "kilo", seasonal: true },
+  { slug: "cebolla", code: "01.1.7.1.10", description: "Cebolla", singular: "kilo de cebolla", plural: "kilos de cebolla", tile: "Cebolla", priceUnit: "kilo", seasonal: true },
+  { slug: "tomate", code: "01.1.7.1.26", description: "Tomate redondo", singular: "kilo de tomate", plural: "kilos de tomate", tile: "Tomate", priceUnit: "kilo", seasonal: true },
+  { slug: "panales", code: "12.1.3.1.04", description: "Pañales descartables", singular: "paquete de 10 pañales", plural: "paquetes de 10 pañales", tile: "Pañales", priceUnit: "paquete de 10", seasonal: false },
+  { slug: "lavandina", code: "05.6.1.1.12", description: "Lavandina", singular: "lavandina", plural: "lavandinas", tile: "Lavandina", priceUnit: "litro", seasonal: false },
+  { slug: "desodorante", code: "12.1.3.2.08", description: "Desodorante", singular: "desodorante", plural: "desodorantes", tile: "Desodorante", priceUnit: "envase de 150 cc", seasonal: false },
+] as const;
+
+export type UnitSlug = (typeof UNITS)[number]["slug"];
