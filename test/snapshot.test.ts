@@ -17,9 +17,10 @@ const months = Array.from({ length: fixture.ipc.length }, (_, i) => {
 });
 const priceRows = () => months.flatMap((periodo, i) => UNITS.map((unit) => ({
   codigo: unit.code as string, descripcion: unit.description as string, periodo,
-  valor: fixture.prices[unit.slug][i] as number | null, valor_null: null as string | null,
+  valor: fixture.prices[unit.slug][i] as number | null,
+  tipo_de_indicador_descripcion: unit.indecUnit as string,
 })));
-const indexRows = () => months.map((periodo, i) => ({ periodo, valor: fixture.ipc[i], valor_null: null }));
+const indexRows = () => months.map((periodo, i) => ({ periodo, valor: fixture.ipc[i] }));
 type Price = ReturnType<typeof priceRows>[number];
 const fakeKey = "fake-secret-do-not-leak";
 const run = <A, E>(effect: Effect.Effect<A, E, import("effect/http/HttpClient").HttpClient>, fetch: typeof globalThis.fetch) => Effect.runPromise(Effect.result(effect.pipe(
@@ -33,7 +34,7 @@ function mockFetch(prices: unknown[] = priceRows(), ipc: unknown[] = indexRows()
     const rows = endpoint === "canasta-crianza"
       ? [{ Periodo: fixture.presets.crianzaMenor1.month, tot_men1: fixture.presets.crianzaMenor1.value }]
       : endpoint === "valorizacion_canastas_cba_cbt"
-      ? [{ periodo: fixture.presets.cbtHogar2.month, valor: fixture.presets.cbtHogar2.value, valor_null: null }]
+      ? [{ periodo: fixture.presets.cbtHogar2.month, valor: fixture.presets.cbtHogar2.value }]
       : url.searchParams.get("codigo") === "eq.0" ? ipc : prices;
     const offset = Number(url.searchParams.get("offset"));
     const limit = Number(url.searchParams.get("limit"));
@@ -58,7 +59,9 @@ describe("INDEC ingestion", () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify(priceRows().slice(0, 2)), {
       headers: { "Content-Range": "0-1/1" },
     }));
-    expect(Result.isFailure(await run(readRows("ipc_nacional", {}, PriceRow), fetch))).toBe(true);
+    expect(await run(readRows("ipc_nacional", {}, PriceRow), fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: "Pagination ipc_nacional 200" },
+    });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("rejects changed totals and premature empty pages", async () => {
@@ -68,18 +71,26 @@ describe("INDEC ingestion", () => {
       if (base.mock.calls.length === 2) response.headers.set("Content-Range", "1000-1999/2597");
       return response;
     });
-    expect(Result.isFailure(await run(readRows("ipc_nacional", {}, PriceRow), fetch))).toBe(true);
+    expect(await run(readRows("ipc_nacional", {}, PriceRow), fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: "Pagination ipc_nacional 206" },
+    });
     const empty = vi.fn<typeof globalThis.fetch>(async () => new Response("[]", { headers: { "Content-Range": "*/2596" } }));
-    expect(Result.isFailure(await run(readRows("ipc_nacional", {}, PriceRow), empty))).toBe(true);
+    expect(await run(readRows("ipc_nacional", {}, PriceRow), empty)).toMatchObject({
+      _tag: "Failure", failure: { message: "Pagination ipc_nacional 200" },
+    });
   });
   it("rejects malformed rows without retrying", async () => {
     const fetch = mockFetch([{ codigo: 12 }]);
-    expect(Result.isFailure(await run(getSnapshot, fetch))).toBe(true);
+    expect(await run(getSnapshot, fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: "Decode ipc_nacional 206" },
+    });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it.each([401, 429])("does not retry HTTP %s", async (status) => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(null, { status }));
-    expect(Result.isFailure(await run(getSnapshot, fetch))).toBe(true);
+    expect(await run(getSnapshot, fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: `Status ipc_nacional ${status}` },
+    });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it.each(["transport", "5xx"])("retries %s at most twice with backoff", async (mode) => {
@@ -89,8 +100,16 @@ describe("INDEC ingestion", () => {
       return new Response(null, { status: 503 });
     });
     const pending = run(getSnapshot, fetch);
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(Result.isFailure(await pending)).toBe(true);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(499);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toMatchObject({
+      _tag: "Failure", failure: { message: mode === "transport" ? "Transport ipc_nacional 0" : "Status ipc_nacional 503" },
+    });
     expect(fetch).toHaveBeenCalledTimes(3);
   });
   it("times out a stalled response body without retrying", async () => {
@@ -107,23 +126,49 @@ describe("INDEC ingestion", () => {
 });
 
 describe("snapshot validation", () => {
-  const invalid: [string, (rows: Price[]) => void][] = [
-    ["missing code", (rows) => { rows.splice(0, rows.length, ...rows.filter((row) => row.codigo !== UNITS[0].code)); }],
-    ["wrong description", (rows) => { rows[0]!.descripcion = "Wrong"; }],
-    ["duplicate row", (rows) => { rows.push({ ...rows[0]! }); }],
-    ["month gap", (rows) => { rows.splice(22, 22); }],
-    ["null value", (rows) => { rows[0]!.valor = null; rows[0]!.valor_null = "///"; }],
-    ["non-positive value", (rows) => { rows[0]!.valor = 0; }],
+  const invalid: [string, string, (rows: Price[]) => void][] = [
+    ["missing code", "gap", (rows) => { rows.splice(0, rows.length, ...rows.filter((row) => row.codigo !== UNITS[0].code)); }],
+    ["wrong description", "price", (rows) => { rows[0]!.descripcion = "Wrong"; }],
+    ["wrong pack size", "unit", (rows) => { rows[0]!.tipo_de_indicador_descripcion = "Valor por 1 kg"; }],
+    ["duplicate row", "price", (rows) => { rows.push({ ...rows[0]! }); }],
+    ["month gap", "gap", (rows) => { rows.splice(22, 22); }],
+    ["null value", "value", (rows) => { rows[0]!.valor = null; }],
+    ["non-positive value", "value", (rows) => { rows[0]!.valor = 0; }],
   ];
-  it.each(invalid)("rejects %s", async (_, mutate) => {
+  it.each(invalid)("rejects %s", async (_, detail, mutate) => {
     const rows = priceRows(); mutate(rows);
-    expect(Result.isFailure(await run(getSnapshot, mockFetch(rows)))).toBe(true);
+    expect(await run(getSnapshot, mockFetch(rows))).toMatchObject({
+      _tag: "Failure", failure: { detail, message: `Validation snapshot 0 ${detail}` },
+    });
   });
   it("rejects a missing IPC month and duplicate IPC rows", async () => {
     const ipc = indexRows(); ipc.splice(1, 1);
-    expect(Result.isFailure(await run(getSnapshot, mockFetch(priceRows(), ipc)))).toBe(true);
-    ipc.push(ipc[0]!);
-    expect(Result.isFailure(await run(getSnapshot, mockFetch(priceRows(), ipc)))).toBe(true);
+    expect(await run(getSnapshot, mockFetch(priceRows(), ipc))).toMatchObject({
+      _tag: "Failure", failure: { message: "Validation snapshot 0 gap" },
+    });
+    const duplicates = indexRows();
+    duplicates.push(duplicates[0]!);
+    expect(await run(getSnapshot, mockFetch(priceRows(), duplicates))).toMatchObject({
+      _tag: "Failure", failure: { message: "Validation snapshot 0 ipc" },
+    });
+  });
+  it("rejects series or either preset below the September 2026 floor", async () => {
+    for (const target of ["series", "valorizacion_canastas_cba_cbt", "canasta-crianza"]) {
+      const base = target === "series"
+        ? mockFetch(priceRows().filter((row) => row.periodo <= "201812"), indexRows().filter((row) => row.periodo <= "201812"))
+        : mockFetch();
+      const fetch = vi.fn<typeof globalThis.fetch>(async (...args) => {
+        const response = await base(...args);
+        if (!String(args[0]).includes(target)) return response;
+        const rows = await response.json();
+        if (target === "canasta-crianza") rows[0].Periodo = "201812";
+        else rows[0].periodo = "201812";
+        return new Response(JSON.stringify(rows), { status: response.status, headers: response.headers });
+      });
+      expect(await run(getSnapshot, fetch)).toMatchObject({
+        _tag: "Failure", failure: { detail: "floor", message: "Validation snapshot 0 floor" },
+      });
+    }
   });
   it("drops October prices when IPC ends in September", async () => {
     const prices = priceRows();
@@ -144,7 +189,9 @@ describe("snapshot validation", () => {
     const base = mockFetch();
     const fetch = vi.fn<typeof globalThis.fetch>(async (...args) => String(args[0]).includes("canasta-crianza")
       ? new Response(JSON.stringify([{ Periodo: "202609", tot_men1: null }]), { headers: { "Content-Range": "0-0/1" } }) : base(...args));
-    expect(Result.isFailure(await run(getSnapshot, fetch))).toBe(true);
+    expect(await run(getSnapshot, fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: "Validation snapshot 0 value" },
+    });
   });
   it("keeps the key out of the plain Next boundary Error and stack", async () => {
     vi.stubEnv("INDEC_API_KEY", fakeKey);

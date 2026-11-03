@@ -5,16 +5,18 @@ export class IndecError extends Data.TaggedError("IndecError")<{
   tag: "Transport" | "Status" | "Timeout" | "Decode" | "Pagination" | "Validation" | "Config";
   endpoint: string;
   status: number;
+  detail?: "month" | "value" | "price" | "ipc" | "coverage" | "gap" | "preset" | "floor" | "unit";
 }> {
-  override get message() { return `${this.tag} ${this.endpoint} ${this.status}`; }
+  override get message() { return `${this.tag} ${this.endpoint} ${this.status}${this.detail ? ` ${this.detail}` : ""}`; }
 }
 
 export const PriceRow = Schema.Struct({
   codigo: Schema.String, descripcion: Schema.String, periodo: Schema.String,
-  valor: Schema.NullOr(Schema.Number), valor_null: Schema.NullOr(Schema.String),
+  tipo_de_indicador_descripcion: Schema.String,
+  valor: Schema.NullOr(Schema.Number),
 });
 export const IndexRow = Schema.Struct({
-  periodo: Schema.String, valor: Schema.NullOr(Schema.Number), valor_null: Schema.NullOr(Schema.String),
+  periodo: Schema.String, valor: Schema.NullOr(Schema.Number),
 });
 export const CrianzaRow = Schema.Struct({ Periodo: Schema.String, tot_men1: Schema.NullOr(Schema.Number) });
 
@@ -41,8 +43,8 @@ export const readRows = <S extends Schema.Constraint & { readonly DecodingServic
         return yield* Effect.fail(new IndecError({ tag: "Status", endpoint, status: response.status }));
       }
       const body = yield* HttpClientResponse.schemaBodyJson(Schema.Array(schema))(response).pipe(
-        Effect.mapError((error) => new IndecError({
-          tag: error._tag === "HttpClientError" && error.reason._tag === "TransportError" ? "Transport" : "Decode",
+        Effect.mapError(() => new IndecError({
+          tag: "Decode",
           endpoint, status: response.status,
         })),
       );
