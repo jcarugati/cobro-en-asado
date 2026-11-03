@@ -83,7 +83,7 @@ card image     /card/<the same segments>
 - Anything else returns 404.
 - The encoder returns an `Option`. When a value is out of range (say a $1 override price), `Compartir` is hidden, so the app never builds a link the route rejects.
 - The share button builds `t` when `¿Y antes?` is showing, otherwise `o` when an override is active, otherwise `p`.
-- **Nothing is requested from `/c` or `/card` before the tap on `Compartir`.** No `<Link>` to them, no prefetch and no card preview `<img>`. A count implies the pay, so an early request would break `El número no sale de tu teléfono`.
+- **Nothing is requested from `/c` or `/card` before the tap on `Compartir`.** No `<Link>` to them, no prefetch and no card preview `<img>`. A count implies the pay, so an early request would break `El número no se manda a ningún lado`.
 - Cards answer with `Cache-Control: public, max-age=31536000, s-maxage=31536000, immutable`. `next/og` defaults to `max-age=0`. After T4 merges, a second production request must show `x-vercel-cache: HIT`.
 - Fetching the card after the tap can use up the browser's activation window. On `NotAllowedError`, keep the fetched file with its share path and ask for a second tap, which shares it with no `await` first. Discard the file if the path changes. If the second tap also fails, show the copy and download buttons, each acting on its own tap. On `AbortError` the visitor cancelled, so do nothing.
 - `next/og` cannot read WOFF2. The card route needs a `.ttf` or `.woff`, within its 500 KB bundle limit.
@@ -109,7 +109,15 @@ card image     /card/<the same segments>
 | Review loop cap | Owner's rule for this build, which overrides the global "until no valid findings". Cheap low findings still get fixed |
 | Card render CPU: median 0.0194 s (20 production renders, 2026-11-03) | Measured `process.cpuUsage()` around the built card route's `GET` plus full PNG body consumption, sequentially on Node 26.13.0; includes the first cold render (0.197 s). This is local process CPU, not Vercel billing telemetry. The original 0.2 s estimate is conservative for warm renders; immutable caching still matters for cold requests and transfer |
 | Hobby limits can pause features; a generic preview is not a quota escape hatch | [Vercel Hobby docs](https://vercel.com/docs/plans/hobby#hobby-billing-cycle), fetched 2026-11-03, say exceeding usage usually requires waiting 30 days before using that feature again; [limits](https://vercel.com/docs/limits) require Pro for higher limits. For this free-only app, uncached cards and revalidation can become unavailable on compute exhaustion, and transfer exhaustion can affect static pages too. The build-time generic preview avoids per-card compute but cannot bypass exhausted delivery quotas. Keep strict validation and immutable caching; no automatic paid upgrade |
+| Copy diverges from `docs/DESIGN.md` on purpose | The first-visit review of the live site found words that read wrong or were hard to check: `Lo que más subió` and `Lo que menos subió`, `hoy tendrías que cobrar`, `los palitos`, `El número no se manda a ningún lado`, `tu dispositivo`, `septiembre de 2026` inside sentences, and the comparison-link line `Alguien cobraba 161 kilos de asado en 2019. Hoy, 71. ¿Y vos?`. `docs/DESIGN.md` stays as agreed; the code is right where the two differ |
+| Tiles sit directly under the headline on every width | Desktop used to push them below the printed line, so clicking a tile changed a number that had scrolled away. They wrap and are compact above 600 px, and phones keep the row. There is no `order` rule, so tab order follows the page, and the tally no longer moves the tiles |
 
 ## Follow-ups
 
-None yet.
+- Preset cards: share is typed pay only.
+- Setting an override moves the tile row once, because the text wraps: about 29 px on phones, and 28 px above 600 px for longer unit names such as `paquetes de yerba`.
+- An override is forgotten when switching units and back. The headline loses its label, so it is honest but mildly annoying.
+- Real phones, Web Share sheets, real screen readers, Safari and Firefox were never tested.
+- The early-request guard is a text check and cannot catch `new Image()` or `sendBeacon`.
+- The INDEC key expires about 2027-05-01 and nothing alerts: the page keeps serving old data with its month visible.
+- The month floor `202609` in validation stops large regressions, not a one-month step back.

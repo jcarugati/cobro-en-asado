@@ -22,7 +22,7 @@ export function formatPercent(ratio: number): string {
 export const monthWithDe = (month: Month): string => monthLabel(month).replace(" ", " de ");
 
 // A preset can lag the price data, and then it must print its own month.
-export const ownMonthNote = (month: Month, lastMonth: Month): string => month === lastMonth ? "" : ` (${monthLabel(month)})`;
+export const ownMonthNote = (month: Month, lastMonth: Month): string => month === lastMonth ? "" : ` (${monthWithDe(month)})`;
 
 const unitOf = (unit: UnitSlug) => UNITS.find((item) => item.slug === unit)!;
 
@@ -40,7 +40,7 @@ export function pastLines(unit: UnitSlug, month: Month, comparison: PastComparis
   const name = (slug: UnitSlug) => unitOf(slug).tile.toLowerCase();
   return [
     `En ${monthWithDe(month)} ${Math.round(unitsThen) === 1 ? "era" : "eran"} ${countPhrase(unit, unitsThen)}. Hoy, ${formatCount(unitsNow)}.`,
-    `Para empatar con los precios en general, hoy deberías cobrar ${formatPesos(breakEven)}. ${position}`,
-    `Lo que peor aguantó: ${name(worst.unit)}. Lo que mejor aguantó: ${name(best.unit)}.`,
+    `Para empatar con los precios en general, hoy tendrías que cobrar ${formatPesos(breakEven)}. ${position}`,
+    `Lo que más subió: ${name(worst.unit)}. Lo que menos subió: ${name(best.unit)}.`,
   ];
 }

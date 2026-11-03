@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, monthIndex, priceAt, tally, unitsFor } from "../src/domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../src/domain/format.ts";
-import { parsePay } from "../src/domain/pay.ts";
+import { parsePay, withDots } from "../src/domain/pay.ts";
 import { decodeShareSegments, encodeSharePath, type ShareResult } from "../src/domain/share.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
 import { UNITS, type UnitSlug } from "../src/domain/units.ts";
@@ -14,6 +14,10 @@ const price = (unit: UnitSlug, month = snapshot.lastMonth) => Option.getOrThrow(
 const comparison = () => Result.getOrThrow(comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" }));
 
 describe("pay parser", () => {
+  it.each([
+    ["1200000", "1.200.000"], ["1.200.000", "1.200.000"], ["$ 1200000", "1.200.000"], ["800", "800"], ["1000000000000", "1.000.000.000.000"],
+    ["1200000,50", "1200000,50"], ["1200,00", "1200,00"], ["800 mil", "800 mil"], ["1.2", "1.2"], ["0", "0"], ["", ""],
+  ])("on blur shows %j as %j", (input, shown) => expect(withDots(input)).toBe(shown));
   it.each([
     ["1.200.000", 1200000], ["1200000", 1200000], ["$ 1.200.000", 1200000],
     ["1.200.000,50", 1200000.5], ["1200000,5", 1200000.5], ["1.200", 1200],
@@ -114,7 +118,7 @@ it("formats deterministic Argentine text with rounding and NBSP", () => {
 it("builds the small copy helpers", () => {
   expect(monthWithDe("201901")).toBe("enero de 2019");
   expect(ownMonthNote("202609", "202609")).toBe("");
-  expect(ownMonthNote("202608", "202609")).toBe(" (agosto 2026)");
+  expect(ownMonthNote("202608", "202609")).toBe(" (agosto de 2026)");
   expect(unitLabel("asado", 1.4)).toBe("kilo de asado");
   expect(unitLabel("asado", 71)).toBe("kilos de asado");
 });
@@ -127,8 +131,8 @@ describe("past comparison copy", () => {
     const result = comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" });
     expect(pastLines("asado", "201901", Result.getOrThrow(result))).toEqual([
       "En enero de 2019 eran 161 kilos de asado. Hoy, 71.",
-      "Para empatar con los precios en general, hoy deberías cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
-      "Lo que peor aguantó: carne picada. Lo que mejor aguantó: fideos.",
+      "Para empatar con los precios en general, hoy tendrías que cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
+      "Lo que más subió: carne picada. Lo que menos subió: fideos.",
     ]);
   });
   it("says arriba when real change is positive", () => {

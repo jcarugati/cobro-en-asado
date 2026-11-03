@@ -13,4 +13,4 @@ Purpose: Tu sueldo, en la unidad que entendemos todos: kilos de asado. — see d
 - Vercel CLI/API: use `with-vercel <cmd>` (exposes $VERCEL_TOKEN). Team: testingstudios-4007s-projects (team_4hAit7X9yHNvtMPrMA0ezMqQ). Project: cobro-en-asado.
 
 ## Status
-Design agreed; implementation in progress.
+MVP live at https://cobro-en-asado.vercel.app. Follow-ups: docs/PLAN.md.
