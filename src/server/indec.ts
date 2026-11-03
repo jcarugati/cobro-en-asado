@@ -42,6 +42,7 @@ export const readRows = <S extends Schema.Constraint & { readonly DecodingServic
       if (response.status !== 200 && response.status !== 206) {
         return yield* Effect.fail(new IndecError({ tag: "Status", endpoint, status: response.status }));
       }
+      // shortcut: a connection drop while reading the body surfaces as Decode and is not retried; split body read from decode if this occurs in practice.
       const body = yield* HttpClientResponse.schemaBodyJson(Schema.Array(schema))(response).pipe(
         Effect.mapError(() => new IndecError({
           tag: "Decode",

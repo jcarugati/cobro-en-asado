@@ -79,6 +79,17 @@ describe("INDEC ingestion", () => {
       _tag: "Failure", failure: { message: "Pagination ipc_nacional 200" },
     });
   });
+  it("rejects a repeated Content-Range position on page two", async () => {
+    const base = mockFetch();
+    const fetch = vi.fn<typeof globalThis.fetch>(async (...args) => {
+      const response = await base(...args);
+      if (base.mock.calls.length === 2) response.headers.set("Content-Range", "0-999/2596");
+      return response;
+    });
+    expect(await run(readRows("ipc_nacional", {}, PriceRow), fetch)).toMatchObject({
+      _tag: "Failure", failure: { message: "Pagination ipc_nacional 206" },
+    });
+  });
   it("rejects malformed rows without retrying", async () => {
     const fetch = mockFetch([{ codigo: 12 }]);
     expect(await run(getSnapshot, fetch)).toMatchObject({
@@ -132,6 +143,7 @@ describe("snapshot validation", () => {
     ["wrong pack size", "unit", (rows) => { rows[0]!.tipo_de_indicador_descripcion = "Valor por 1 kg"; }],
     ["duplicate row", "price", (rows) => { rows.push({ ...rows[0]! }); }],
     ["month gap", "gap", (rows) => { rows.splice(22, 22); }],
+    ["bad month", "month", (rows) => { rows[0]!.periodo = "2026-09"; }],
     ["null value", "value", (rows) => { rows[0]!.valor = null; }],
     ["non-positive value", "value", (rows) => { rows[0]!.valor = 0; }],
   ];
@@ -141,7 +153,7 @@ describe("snapshot validation", () => {
       _tag: "Failure", failure: { detail, message: `Validation snapshot 0 ${detail}` },
     });
   });
-  it("rejects a missing IPC month and duplicate IPC rows", async () => {
+  it("rejects a missing IPC month, duplicate IPC rows and a non-positive IPC value", async () => {
     const ipc = indexRows(); ipc.splice(1, 1);
     expect(await run(getSnapshot, mockFetch(priceRows(), ipc))).toMatchObject({
       _tag: "Failure", failure: { message: "Validation snapshot 0 gap" },
@@ -150,6 +162,11 @@ describe("snapshot validation", () => {
     duplicates.push(duplicates[0]!);
     expect(await run(getSnapshot, mockFetch(priceRows(), duplicates))).toMatchObject({
       _tag: "Failure", failure: { message: "Validation snapshot 0 ipc" },
+    });
+    const nonPositive = indexRows();
+    nonPositive[0]!.valor = 0;
+    expect(await run(getSnapshot, mockFetch(priceRows(), nonPositive))).toMatchObject({
+      _tag: "Failure", failure: { message: "Validation snapshot 0 value" },
     });
   });
   it("rejects series or either preset below the September 2026 floor", async () => {

@@ -59,7 +59,7 @@ function buildSnapshot(
   }
   const priceMonths = new Set(prices.map((row) => row.periodo));
   const lastMonth = [...indexes.keys()].filter((month) => priceMonths.has(month)).sort().at(-1);
-  if (!lastMonth || lastMonth < "201612") fail("coverage");
+  if (!lastMonth) fail("coverage");
   const months: string[] = [];
   for (let year = 2016, month = 12; ; ) {
     const value = `${year}${String(month).padStart(2, "0")}`;
