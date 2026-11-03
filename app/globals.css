@@ -1,0 +1,302 @@
+:root {
+  color-scheme: light dark;
+  --paper: #f3e7d7;
+  --ink: #1c1713;
+  --muted: #5e5147;
+  --ember: #be3207;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #24211e;
+    --ink: #f2e7d8;
+    --muted: #bbae9f;
+    --ember: #ff7b3f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  word-spacing: 0.05em;
+}
+
+p { margin: 0; }
+
+:focus-visible {
+  outline: 3px solid var(--ember);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ticket {
+  max-width: 592px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.ticket > * + * {
+  border-top: 2px dotted var(--muted);
+}
+
+.ticket > section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 18px 0;
+}
+
+h1 {
+  margin: 0;
+  padding-bottom: 12px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Money fields */
+
+.money { display: grid; gap: 6px; }
+
+.money label, .when label { font-weight: 800; text-wrap: balance; }
+
+.money-large label { font-size: 1.0625rem; }
+
+.field {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.money-large .field { font-size: 2rem; }
+
+.field:focus-within {
+  border-color: var(--ember);
+  box-shadow: 0 2px 0 var(--ember);
+}
+
+.field input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: inherit;
+}
+
+.note, .printed { color: var(--muted); font-size: 0.875rem; }
+
+.hint { font-weight: 800; font-size: 0.875rem; }
+
+/* Reserved, so the hint coming and going never moves the tile row under a finger. */
+.money-large .hint { min-height: 1.4em; }
+
+/* Result */
+
+.figures { container-type: inline-size; }
+
+.stale .result, .stale .past { opacity: 0.35; }
+
+.tagline {
+  font-size: clamp(2rem, 9cqw, 3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.headline {
+  /* Fills the column for up to 3 characters and shrinks to fit longer counts. */
+  --number: min(13rem, 100cqw / (max(3, var(--chars)) * 0.67));
+  display: grid;
+  gap: 2px;
+  font-size: 1.625rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.big {
+  display: block;
+  font-size: var(--number);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  /* Tabular figures carry side bearings; pull the first one back onto the text edge. */
+  margin-left: -0.035em;
+  white-space: nowrap;
+}
+
+.lines { display: grid; gap: 8px; }
+
+/* A smaller number leaves its spare height above the lead, not inside the sentence, so every count keeps the tile row in place. */
+.headline > :first-child { margin-top: calc((min(13rem, 100cqw / 2.01) - var(--number)) * 0.86); }
+
+.alternate { font-size: 1.25rem; font-weight: 800; }
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-block: 4px;
+  font-weight: 800;
+}
+
+.tally svg { display: block; }
+.tally svg:nth-child(3n) { transform: rotate(-3deg); }
+.tally svg:nth-child(3n + 1) { transform: rotate(2deg); }
+
+.tally path {
+  fill: none;
+  stroke: var(--ember);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+/* Presets and unit tiles */
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 800;
+}
+
+.swipe {
+  display: none;
+  margin-left: 0.5ch;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Desktop has room for the whole ticket, so the printed line stays on the first screen and the tiles follow it. */
+@media (min-width: 601px) {
+  #units-label, .units { order: 1; }
+}
+
+@media (max-width: 600px) {
+  .swipe { display: inline; }
+
+  .units {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Runs to the screen edge, where the cut-off tile shows there is more. The padding keeps focus rings unclipped. */
+    margin: -6px -16px;
+    padding: 6px 16px;
+    scroll-padding-inline: 16px;
+    scrollbar-width: thin;
+    gap: 4px;
+  }
+
+  /* Tighter than desktop so a tile's text is visibly cut at the common phone widths (360, 375, 390, 393). */
+  .units button {
+    flex: none;
+    padding-inline: 10px;
+  }
+}
+
+@media (hover: hover) {
+  button:hover { border-color: var(--ink); text-decoration: underline; }
+}
+
+/* Disclosures */
+
+.ticket > .more {
+  gap: 0;
+  padding: 6px 0;
+}
+
+details:not([hidden]) + details { border-top: 2px dotted var(--muted); }
+
+summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 0;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+summary::-webkit-details-marker { display: none; }
+
+summary::before {
+  content: "+" / "";
+  width: 1ch;
+  color: var(--ember);
+}
+
+details[open] summary::before { content: "−" / ""; }
+
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 18px;
+}
+
+.past { display: grid; gap: 8px; }
+
+.when {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 10px;
+}
+
+.when > div { display: grid; gap: 6px; }
+
+select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+}
+
+footer {
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+footer a { color: inherit; }

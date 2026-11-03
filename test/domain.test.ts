@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, monthIndex, priceAt, tally, unitsFor } from "../src/domain/calc.ts";
-import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel } from "../src/domain/format.ts";
+import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../src/domain/format.ts";
 import { parsePay } from "../src/domain/pay.ts";
 import { decodeShareSegments, encodeSharePath, type ShareResult } from "../src/domain/share.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
@@ -109,6 +109,37 @@ it("formats deterministic Argentine text with rounding and NBSP", () => {
   expect(countPhrase("asado", 1.5)).toBe("2 kilos de asado");
   expect(countPhrase("lavandina", 869)).toBe("869 lavandinas");
   expect(countPhrase("asado", 1234)).toBe("1.234 kilos de asado");
+});
+
+it("builds the small copy helpers", () => {
+  expect(monthWithDe("201901")).toBe("enero de 2019");
+  expect(ownMonthNote("202609", "202609")).toBe("");
+  expect(ownMonthNote("202608", "202609")).toBe(" (agosto 2026)");
+  expect(unitLabel("asado", 1.4)).toBe("kilo de asado");
+  expect(unitLabel("asado", 71)).toBe("kilos de asado");
+});
+
+describe("past comparison copy", () => {
+  const worst = { unit: "carne-picada", change: -0.5 } as const;
+  const best = { unit: "fideos", change: 0 } as const;
+  const base = { unitsThen: 161, unitsNow: 71, unitChange: 0, breakEven: 1986506, realChange: -0.396, worst, best };
+  it("matches the agreed lines on the acceptance case", () => {
+    const result = comparePast(snapshot, { unit: "asado", pay: 1200000, oldPay: 30000, month: "201901" });
+    expect(pastLines("asado", "201901", Result.getOrThrow(result))).toEqual([
+      "En enero de 2019 eran 161 kilos de asado. Hoy, 71.",
+      "Para empatar con los precios en general, hoy deberías cobrar $1.986.506. Estás un 39,6\u00a0% abajo.",
+      "Lo que peor aguantó: carne picada. Lo que mejor aguantó: fideos.",
+    ]);
+  });
+  it("says arriba when real change is positive", () => {
+    expect(pastLines("asado", "201901", { ...base, realChange: 0.12 })[1]).toContain("Estás un 12,0\u00a0% arriba.");
+  });
+  it.each([0, 0.0004, -0.0004])("says so plainly when %s rounds to zero", (realChange) => {
+    expect(pastLines("asado", "201901", { ...base, realChange })[1]).toContain("Estás igual: ni arriba ni abajo.");
+  });
+  it("agrees in the singular", () => {
+    expect(pastLines("asado", "201901", { ...base, unitsThen: 1.2 })[0]).toBe("En enero de 2019 era 1 kilo de asado. Hoy, 71.");
+  });
 });
 
 describe("share paths", () => {
