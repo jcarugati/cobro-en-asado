@@ -13,4 +13,4 @@ Purpose: Tu sueldo, en la unidad que entendemos todos: kilos de asado. — see d
 - Vercel CLI/API: use `with-vercel <cmd>` (exposes $VERCEL_TOKEN). Team: testingstudios-4007s-projects (team_4hAit7X9yHNvtMPrMA0ezMqQ). Project: cobro-en-asado.
 
 ## Status
-MVP live at https://cobro-en-asado.vercel.app, with a chart racing the product against prices and wages. Follow-ups: docs/PLAN.md.
+Live at https://cobro-en-asado.vercel.app: the pay calculator, price-and-wage race chart, “Horas de laburo” view, “Armá tu asado” planner and “¿Más o menos?” game. Follow-ups: docs/PLAN.md.

@@ -132,6 +132,15 @@ Use the code to query and assert the description at ingest. The UI labels (singu
 | Lavandina | `05.6.1.1.12` | 1,000 cc | 1,380.53 |
 | Desodorante | `12.1.3.2.08` | 150 cc | 4,550.81 |
 
+## After launch
+
+Three tabs keep the calculator, planner and game within reach. See [Decisions in docs/PLAN.md](PLAN.md#decisions) for the reasoning.
+
+- **“Armá tu asado” (`/asado`).** Choose 1–100 people for a ten-product shopping list at GBA average prices, with totals for the latest published month and a chosen past month, plus a price per head. An optional pay adds the work time needed. Share links carry only the people count and two months; cards compute totals from the cached snapshot.
+- **“¿Más o menos?” (`/juego`).** Ten rounds ask whether a product rose more or less than GBA inflation since the displayed month. Each reveal shows both changes and a sparkline. A streak and shareable score give a reason to replay; a friend's seed and month reproduce the same questions. Only the best streak persists, in `localStorage`.
+- **“Horas de laburo” (`/`).** A typed pay unlocks the kilos/hours toggle, an editable 176-hours-per-month assumption, and all 22 products in work time. Presets stay in kilos. Sharing still sends counts: no work time reaches cards or URLs. Pay and monthly hours live in memory and reset on reload.
+- **Charts.** The calculator races the selected GBA product against GBA IPC and a national INDEC wage reference, starting at x1 on a log axis. The visitor's two pay amounts remain two points, never an invented earnings history. The chart loads near the viewport or on the first Tab press; the game's sparklines compare product and IPC after each answer.
+
 ## Out of scope
 
 - Any salary-history slider or invented earnings path.
@@ -139,7 +148,7 @@ Use the code to query and assert the description at ingest. The UI labels (singu
 - "Tu inflación" or any personal inflation rate.
 - Trueque as a separate picker, population, trade, poverty and activity data.
 - Prices before 2016-12.
-- Accounts, database, stored results, leaderboards, comments, runtime LLM.
+- Accounts, database, stored pay results, leaderboards, comments, runtime LLM. The game's local best streak is the only persistent browser storage.
 - Analytics. Add later only if amounts provably can't reach it.
 - Dollar conversion, custom domain, ads. Commercial use would break the Hobby terms.
 
@@ -196,9 +205,10 @@ getSnapshot()   Effect: paginate → decode with Schema → validate coverage
 Static page + snapshot, on the CDN
    │
    ▼
-Browser: all calculations. Pay never leaves the device.
+Browser: all pay calculations. Pay never leaves the device.
 
-Card route (next/og): gets only counts, unit and month. Never pesos.
+Card routes (next/og): pay counts, planner people/months, or game score/seed/month.
+Planner cards compute basket prices from the cached snapshot. Never visitor pay.
 ```
 
 - **Stack:** Next.js App Router on Vercel Hobby, TypeScript, Effect v4 for the data layer and logic. Follow the v4 guidelines: no `flow`, no tacit `Effect.map(fn)`.
@@ -210,7 +220,7 @@ Card route (next/og): gets only counts, unit and month. Never pesos.
   - The data month is the latest month common to prices and IPC. Each preset prints its own month if it differs.
   - Any failure throws, so ISR keeps the last good version.
 - **Build:** the key must be available at build time and at runtime. If INDEC is down during a deploy, the build fails and the previous deployment stays live.
-- **Card route:** validate input strictly (integer ranges, known unit slug, known month format, otherwise 404). Cards contain only their URL's values, so they can be cached as immutable. Bundle the font locally and don't rely on emoji.
+- **Card routes:** validate input strictly (integer ranges, known unit slug, known month format, otherwise 404). Pay and game cards use their URL's values; planner cards price the fixed basket from the cached snapshot at the URL's months. Cards are cached as immutable. Bundle the font locally and don't rely on emoji.
 
 ### Cost
 
@@ -225,7 +235,7 @@ Visitor math runs on the visitor's device, so traffic adds transfer but no compu
 
 ## UI direction
 
-Superseded on 2026-11-03: the live look is `Bodegón`, see the decisions in `docs/PLAN.md`. Scope and copy rules below still hold.
+Superseded on 2026-11-03: the live look is `Bodegón`, see the decisions in `docs/PLAN.md`. The visual direction below records the original agreement; current layout and features are in After launch. Copy rules still hold.
 
 A butcher's ticket, not a dashboard.
 
@@ -248,11 +258,11 @@ A butcher's ticket, not a dashboard.
 | Risk | Handling |
 |---|---|
 | **One joke, one share.** Critic B's strongest argument against this pick | The tiles and `¿Y antes?` give reasons to retry. Accepted: this is something fun to try, not a daily habit |
-| **Asado counts can reveal pay.** 71 kg implies about $1.2M | Sharing is opt-in with a visible warning. Pesos never appear in URLs, cards, logs or storage |
+| **Asado counts can reveal pay.** 71 kg implies about $1.2M | Sharing is opt-in with a visible warning. Visitor pay never appears in URLs, cards, logs or persistent storage. Planner cards display shopping totals in pesos. |
 | **`Acá no está a ese precio`.** GBA averages, published with a lag, will be the first complaint | GBA and month on every result and card, plus the price override. Regions are the first post-launch candidate |
 | **Reads as bleak or partisan** | No suggested dates, no slider, flat canasta wording, the copy rules above |
 | **Key expires about 2027-05-01, or the API changes** | Old data keeps serving with its month visible, but nothing alerts anyone and the owner must renew the key. While revalidation fails, requests keep retrying, bounded by traffic |
-| **Forged share URLs** can show any count under an INDEC footer | Accepted: a card is a claim about a person, it shows no INDEC price, and values are range-limited |
+| **Forged share URLs** can show any count or score under an INDEC footer | Pay and game cards are personal claims with range-limited values. Planner URLs hold no prices: their cards compute the basket from the snapshot |
 | **Card route exhausts Hobby quotas** in a viral spike | Immutable caching and strict validation. The page itself stays static, but check how Hobby behaves at its limits and use a generic preview as the fallback |
 | **`effect` weight in the browser** | Measure it. If it is too heavy, keep Schema on the server and keep the client code lean, still following the v4 style |
 | **Ten-year floor.** Dates before 2016-12 are refused | Friendly refusal. Don't mention the politics of older INDEC data |
