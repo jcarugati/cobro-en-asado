@@ -10,14 +10,6 @@ const params = (path: string) => ({ params: Promise.resolve({ share: path.split(
 beforeAll(async () => {
   vi.mocked(loadSnapshot).mockResolvedValue(JSON.parse(await readFile(new URL("./fixtures/snapshot-202609.json", import.meta.url), "utf8")));
 });
-it.each([
-  [GamePage, gameMetadata, "8/10/42/202609", "/card/j/8/10/42/202609", "Alguien acertó 8 de 10. ¿Y vos?"],
-] as const)("renders a bare shared page with metadata", async (page, metadata, path, image, title) => {
-  const result = await page(params(path));
-  expect(result.type).toBe("main");
-  expect(result.props.children.props.children).toBe(title);
-  expect(await metadata(params(path))).toMatchObject({ title, robots: { index: false, follow: true }, openGraph: { images: [{ url: image, width: 1200, height: 630 }] }, twitter: { card: "summary_large_image", images: [{ url: image, width: 1200, height: 630 }] } });
-});
 it("starts a shared plan from an older link's people and month, and prices it today", async () => {
   const html = renderToStaticMarkup(await PlanPage(params("7/201812/202608")));
   expect(html).toContain('class="shared">Te pasaron un asado para\u00a07. Armá el tuyo:</p>');
@@ -33,6 +25,14 @@ it("starts a shared plan from an older link's people and month, and prices it to
 it("keeps the link's own price in the preview, pinned with its card", async () => {
   const image = { url: "/card/a/7/201812/202608", width: 1200, height: 630 };
   expect(await planMetadata(params("7/201812/202608"))).toMatchObject({ title: "Un asado para 7 sale $97.882. ¿Y el tuyo?", robots: { index: false, follow: true }, openGraph: { images: [image] }, twitter: { card: "summary_large_image", images: [image] } });
+});
+it("plays the link's game and keeps the metadata", async () => {
+  const title = "Alguien acertó 8 de 10. ¿Y vos?";
+  const image = { url: "/card/j/8/10/42/202609", width: 1200, height: 630 };
+  const result = await GamePage(params("8/10/42/202609"));
+  expect(result.props).toMatchObject({ seed: 42, month: "202609", shared: { score: 8, total: 10, seed: 42, month: "202609" } });
+  expect(await gameMetadata(params("8/10/42/202609"))).toMatchObject({ title, robots: { index: false, follow: true }, openGraph: { images: [image] }, twitter: { card: "summary_large_image", images: [image] } });
+  expect(renderToStaticMarkup(result)).toContain(title);
 });
 it.each([
   [PlanPage, planMetadata, "06/201901/202609"], [PlanPage, planMetadata, "6/201901/209912"],

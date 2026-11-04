@@ -79,9 +79,9 @@ export function roundSeries(snapshot: Snapshot, round: Round): { product: number
   return { product: rebase(snapshot.prices[round.unit].slice(0, end + 1), start), ipc: rebase(snapshot.ipc.slice(0, end + 1), start) };
 }
 
-export function roundQuestion(round: Round): string {
+export function roundQuestionParts(round: Round): { since: string; product: string; rest: string } {
   const unit = unitOf(round.unit);
-  return `Desde ${monthWithDe(round.start)}, ¿${unit.article} ${unit.tile.toLowerCase()} ${unit.article === "los" ? "subieron" : "subió"} más o menos que la inflación (IPC GBA)?`;
+  return { since: `Desde ${monthWithDe(round.start)},`, product: `${unit.article} ${unit.tile.toLowerCase()}`, rest: `${unit.article === "los" ? "subieron" : "subió"} más o menos que la inflación (IPC GBA)?` };
 }
 
 export function roundReveal(round: Round): { product: string; ipc: string } {
@@ -116,7 +116,53 @@ export const gameCardPath = (result: GameResult): string => `/card/j/${result.sc
 export function gameCardLines(result: GameResult): CardLines {
   const tail = `de ${result.total} en Cobro en Asado`;
   return { kind: "j", headline: `Acerté ${result.score} ${tail}`, lead: "Acerté", count: result.score, tail,
-    detail: "¿Subió más o menos que la inflación?", footer: `Promedio GBA · ${monthLabel(result.month)} · INDEC` };
+    detail: scoreLine(result.score), footer: `Promedio GBA · ${monthLabel(result.month)} · INDEC` };
 }
 export const gameShareTarget = (result: GameResult): ShareTarget => ({ path: gameCardPath(result).replace("/card/", "/c/"), card: gameCardPath(result), text: gameCardLines(result).headline });
 export const gameSharedLine = (result: GameResult): string => `Alguien acertó ${result.score} de ${result.total}. ¿Y vos?`;
+
+// Between the two rises the reveal prints, not the multiples the near-tie rule uses: 11,5 % against 33,5 % is close as multiples and reads as nothing like "por poco".
+const CLOSE_RATIO = 1.25;
+const ROUT_RATIO = 2;
+export function roundMargin(round: Round): "poco" | "bastante" | "goleada" {
+  const low = Math.min(round.productChange, round.ipcChange);
+  // A price that fell or stood still while the other rose has no ratio to speak of, and is the widest gap there is.
+  const apart = low > 0 ? Math.max(round.productChange, round.ipcChange) / low : Infinity;
+  return apart < CLOSE_RATIO ? "poco" : apart < ROUT_RATIO ? "bastante" : "goleada";
+}
+
+export const roundOutcome = (round: Round): string => `Era ${round.answer === "mas" ? "más" : "menos"}, por ${roundMargin(round)}.`;
+
+// The verdict sits on one line beside its seal, so each stays within 14 characters. About the meat, never the player.
+const VERDICTS = {
+  right: {
+    poco: ["¡Al punto!", "¡Por un pelo!", "¡Jugoso!", "¡Raspando!"],
+    bastante: ["¡Adentro!", "¡Buen corte!", "¡Ojo de bife!", "¡De primera!"],
+    goleada: ["¡Golazo!", "¡De taquito!", "¡Al ángulo!", "¡Lomo puro!"],
+  },
+  wrong: {
+    poco: ["Quedó crudo.", "Faltó brasa.", "Casi, casi.", "Casi al punto."],
+    bastante: ["Se quemó.", "Puro hueso.", "Puro nervio.", "Carbón puro."],
+    goleada: ["Ni el perro.", "Pura suela.", "Bomberos."],
+  },
+};
+
+// Walks each list through the game, so two neighbouring rounds can't read the same, and the same answers always read the same. A round with no pick yet reads as wrong.
+export function roundVerdict(rounds: readonly Round[], picks: readonly Answer[], index: number): string {
+  const listAt = (at: number) => VERDICTS[picks[at] === rounds[at]!.answer ? "right" : "wrong"][roundMargin(rounds[at]!)];
+  const lines = listAt(index);
+  const nth = rounds.slice(0, index).filter((_, at) => listAt(at) === lines).length;
+  return lines[(Number(rounds[0]!.start) + nth) % lines.length]!;
+}
+
+export function scoreLine(score: number): string {
+  if (score === GAME_ROUNDS) return "Diez de diez. Ni en la carnicería se acuerdan tanto de los precios.";
+  if (score >= 8) return "Se nota que mirás el cartelito antes de meterlo al changuito.";
+  if (score >= 6) return "Aprobaste, raspando. Un par de cosas las metiste al changuito sin mirar el precio.";
+  if (score >= 4) return "Tocando siempre el mismo botón sacabas 5. Lo dejamos ahí.";
+  return "Te tocó el changuito con la rueda que tira para un costado.";
+}
+
+export function friendLine(friend: number, score: number): string {
+  return `Alguien sacó ${friend}. ${score > friend ? "Le ganaste." : score === friend ? "Empataron." : "Te ganó."}`;
+}

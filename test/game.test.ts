@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import * as Option from "effect/Option";
-import { dailySeed, decodeGameSegments, gameCardLines, gameCardPath, gameRounds, gameSharedLine, gameShareTarget, roundQuestion, roundReveal, roundSeries, scoreAnswers, type Round } from "../src/domain/game.ts";
+import { dailySeed, decodeGameSegments, friendLine, gameCardLines, gameCardPath, gameRounds, gameSharedLine, gameShareTarget, roundOutcome, roundQuestionParts, GAME_ROUNDS, MAX_SEED, roundReveal, roundSeries, roundVerdict, scoreAnswers, scoreLine, type Round } from "../src/domain/game.ts";
 import { monthAt } from "../src/domain/chart.ts";
 import { monthIndex } from "../src/domain/calc.ts";
 import { formatChange } from "../src/domain/format.ts";
@@ -52,9 +52,10 @@ it("scores partial streaks", () => {
 });
 const round: Round = { unit: "asado", start: "201901", month: "202609", productChange: 65.2, ipcChange: 65.5, answer: "menos" };
 it("pins questions, reveals and change formatting", () => {
-  expect(roundQuestion(round)).toBe("Desde enero de 2019, ¿el asado subió más o menos que la inflación (IPC GBA)?");
-  expect(roundQuestion({ ...round, unit: "yerba" })).toBe("Desde enero de 2019, ¿la yerba subió más o menos que la inflación (IPC GBA)?");
-  expect(roundQuestion({ ...round, unit: "huevos" })).toBe("Desde enero de 2019, ¿los huevos subieron más o menos que la inflación (IPC GBA)?");
+  const rest = "más o menos que la inflación (IPC GBA)?";
+  expect(roundQuestionParts(round)).toEqual({ since: "Desde enero de 2019,", product: "el asado", rest: `subió ${rest}` });
+  expect(roundQuestionParts({ ...round, unit: "yerba" })).toEqual({ since: "Desde enero de 2019,", product: "la yerba", rest: `subió ${rest}` });
+  expect(roundQuestionParts({ ...round, unit: "huevos" })).toEqual({ since: "Desde enero de 2019,", product: "los huevos", rest: `subieron ${rest}` });
   expect(roundReveal(round)).toEqual({ product: "El asado subió 6.520\u00a0%", ipc: "La inflación subió 6.550\u00a0%" });
   expect(roundReveal({ ...round, unit: "yerba", productChange: -0.335, ipcChange: 0 })).toEqual({ product: "La yerba bajó 33,5\u00a0%", ipc: "La inflación no cambió" });
   expect(roundReveal({ ...round, unit: "huevos", productChange: 0 })).toMatchObject({ product: "Los huevos no cambiaron" });
@@ -68,7 +69,7 @@ it("pins game sharing", () => {
   const result = { score: 8, total: 10, seed: 42, month: "202609" };
   expect(Option.getOrThrow(decodeGameSegments(["8", "10", "42", "202609"]))).toEqual(result);
   expect(Option.isSome(decodeGameSegments(["0", "10", "0", "202609"]))).toBe(true);
-  expect(gameCardLines(result)).toEqual({ kind: "j", headline: "Acerté 8 de 10 en Cobro en Asado", lead: "Acerté", count: 8, tail: "de 10 en Cobro en Asado", detail: "¿Subió más o menos que la inflación?", footer: "Promedio GBA · septiembre 2026 · INDEC" });
+  expect(gameCardLines(result)).toEqual({ kind: "j", headline: "Acerté 8 de 10 en Cobro en Asado", lead: "Acerté", count: 8, tail: "de 10 en Cobro en Asado", detail: "Se nota que mirás el cartelito antes de meterlo al changuito.", footer: "Promedio GBA · septiembre 2026 · INDEC" });
   expect(gameSharedLine(result)).toBe("Alguien acertó 8 de 10. ¿Y vos?");
   expect(gameShareTarget(result)).toEqual({ path: "/c/j/8/10/42/202609", card: gameCardPath(result), text: gameCardLines(result).headline });
 });
@@ -132,4 +133,61 @@ it.each([1, 1.06])("keeps games balanced after 12 months of prices ×%s and IPC 
       expect(Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1)).toBeGreaterThanOrEqual(0.05);
     }
   }
+});
+it("has a game for every seed, since Otra partida walks them all", () => {
+  for (let seed = 0; seed <= MAX_SEED; seed++) expect(Option.isSome(gameRounds(snapshot, { seed, month: snapshot.lastMonth })), String(seed)).toBe(true);
+});
+it("gives each score band its line, and the 4 to 5 band teases the always-same-button score", () => {
+  const bands = [[10, "Diez de diez"], [9, "cartelito"], [8, "cartelito"], [7, "raspando"], [6, "raspando"], [5, "sacabas 5"], [4, "sacabas 5"], [3, "rueda"], [0, "rueda"]] as const;
+  for (const [score, text] of bands) expect(scoreLine(score)).toContain(text);
+});
+it("compares with the friend's score", () => {
+  expect(friendLine(8, 9)).toBe("Alguien sacó 8. Le ganaste.");
+  expect(friendLine(8, 8)).toBe("Alguien sacó 8. Empataron.");
+  expect(friendLine(8, 7)).toBe("Alguien sacó 8. Te ganó.");
+});
+it("picks the verdict from right or wrong and the margin", () => {
+  const months = Array.from({ length: 96 }, (_, index) => monthAt(snapshot, index));
+  const lines = (pick: "mas" | "menos", productChange: number) => new Set(months.map((start) => roundVerdict([{ ...round, start, productChange, ipcChange: 1 }], [pick], 0)));
+  const sets = (["menos", "mas"] as const).flatMap((pick) => [1.1, 1.5, 3].map((margin) => lines(pick, margin)));
+  // Six separate lists, so a rout lost never reads like anything else.
+  const every = sets.flatMap((set) => [...set]);
+  expect(new Set(every).size).toBe(every.length);
+  for (const set of sets) expect(set.size).toBeGreaterThanOrEqual(3);
+  for (const line of every) expect(line.length).toBeLessThanOrEqual(14);
+});
+it("never repeats a verdict back to back across every seed, and the same answers read the same", () => {
+  for (let seed = 0; seed <= MAX_SEED; seed++) {
+    const game = rounds(seed);
+    const right = game.map((item) => item.answer);
+    const wrong = game.map((item) => item.answer === "mas" ? "menos" as const : "mas" as const);
+    // Mixed answers vary by seed, so neighbours from different lists and from the same list both come up.
+    const mixed = game.map((item, index) => (seed >> (index % 10)) & 1 ? item.answer : wrong[index]!);
+    for (const picks of [right, wrong, mixed, ["mas", "mas", "mas", "mas", "mas", "mas", "mas", "mas", "mas", "mas"] as const]) {
+      const lines = game.map((_, index) => roundVerdict(game, picks, index));
+      lines.forEach((line, index) => { if (index > 0) expect(line, `seed ${seed} round ${index}`).not.toBe(lines[index - 1]); });
+      expect(lines).toEqual(game.map((_, index) => roundVerdict(game, picks, index)));
+      // Later answers can't rewrite a verdict already on screen.
+      lines.forEach((line, index) => expect(roundVerdict(game, picks.slice(0, index + 1), index)).toBe(line));
+    }
+  }
+});
+it("reads as the wrong list until a round is answered, so the hidden face holds a real line", () => {
+  const game = rounds(0);
+  const wrong = game[0]!.answer === "mas" ? "menos" as const : "mas" as const;
+  expect(roundVerdict(game, [], 0)).toBe(roundVerdict(game, [wrong], 0));
+});
+it("says how far apart the two ended, from the ratio of the rises the reveal prints", () => {
+  const cases = [[1.06, "Era más, por poco."], [1.24, "Era más, por poco."], [1.25, "Era más, por bastante."], [1.99, "Era más, por bastante."], [2, "Era más, por goleada."]] as const;
+  for (const [ratio, text] of cases) expect(roundOutcome({ ...round, productChange: ratio, ipcChange: 1, answer: "mas" })).toBe(text);
+  expect(roundOutcome({ ...round, productChange: 0.2, ipcChange: 0.5, answer: "menos" })).toBe("Era menos, por goleada.");
+  expect(roundOutcome({ ...round, productChange: 60, ipcChange: 70, answer: "menos" })).toBe("Era menos, por poco.");
+});
+it("calls a price that fell or stood still against one that rose a rout", () => {
+  expect(roundOutcome({ ...round, productChange: -0.023, ipcChange: 0.415, answer: "menos" })).toBe("Era menos, por goleada.");
+  expect(roundOutcome({ ...round, productChange: 0, ipcChange: 0.3, answer: "menos" })).toBe("Era menos, por goleada.");
+});
+it("keeps the stylesheet's braces balanced, which a merge of two blocks at its end can break with every other gate green", async () => {
+  const css = (await readFile(new URL("../app/globals.css", import.meta.url), "utf8")).replace(/\/\*[\s\S]*?\*\//g, "");
+  expect(css.split("{").length).toBe(css.split("}").length);
 });

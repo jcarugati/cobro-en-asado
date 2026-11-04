@@ -86,6 +86,9 @@ p { margin: 0; }
 
 a { color: inherit; }
 
+/* A double tap must not zoom the page, on this game's buttons or the planner's stepper. */
+a, button { touch-action: manipulation; }
+
 :focus-visible {
   outline: 3px solid var(--ember);
   outline-offset: 2px;
@@ -1490,3 +1493,383 @@ footer {
   .plan-table { max-width: max(240px, (100dvh - 579px) * 2.5); }
   .plan-work ~ .plan-table { max-width: max(240px, (100dvh - 646px) * 2.5); }
 }
+
+/* ¿Más o menos?: a game show at the butcher's counter. */
+
+.game { --answers: 92px; }
+
+.game-board { gap: var(--space-2); }
+
+.game-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.game-count { font: 400 1.5rem/1 var(--display); }
+
+.game-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--raised);
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+/* The same yolk as the action: it is the one thing on this line worth losing. */
+.game-streak-on { background: var(--yolk); color: var(--on-yolk); }
+
+/* From the right: the chip sits on the page's edge, and must not widen the page as it grows. */
+.game-streak-grew, .game-streak-blaze { transform-origin: right center; }
+
+.game-streak-grew { animation: streak-pop 480ms var(--ease); }
+
+@keyframes streak-pop {
+  35% { scale: 1.3; rotate: -4deg; }
+}
+
+.game-streak-blaze { animation: streak-blaze 760ms var(--ease); }
+
+@keyframes streak-blaze {
+  30% { scale: 1.6; rotate: -6deg; box-shadow: 0 0 0 6px var(--yolk); }
+  100% { box-shadow: 0 0 0 26px transparent; }
+}
+
+.game-marks {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.game-mark {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  max-width: 56px;
+  border-radius: var(--radius-full);
+  background: var(--raised);
+}
+
+.game-mark-now { box-shadow: inset 0 0 0 2.5px var(--ink); }
+
+.game-mark-hit { background: none; animation: drop 420ms var(--ease) backwards; }
+
+.game-mark-hit svg { display: block; width: 118%; height: auto; rotate: -6deg; filter: drop-shadow(0 1px 1px rgb(58 13 8 / 0.3)); }
+
+.game-mark-miss { background: none; box-shadow: inset 0 0 0 2px var(--ink-soft); color: var(--ink-soft); }
+
+.game-mark-miss svg { width: 52%; }
+
+.game-stage { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+
+.game-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* Fills the screen under the board, so the answers land in thumb reach. */
+  min-height: max(360px, 100dvh - 318px);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.game:has(.shared) .game-card { min-height: max(360px, 100dvh - 372px); }
+
+.game-card.is-wrong { animation: game-shake 360ms var(--ease); }
+
+@keyframes game-shake {
+  20% { translate: -7px 0; }
+  45% { translate: 6px 0; }
+  70% { translate: -3px 0; }
+}
+
+/* A rout is the rare round, about one in fifteen, so it hits harder either way. */
+.game-card.is-wrong.is-rout { animation: game-shake-hard 520ms var(--ease); }
+
+@keyframes game-shake-hard {
+  15% { translate: -14px 0; rotate: -1.5deg; }
+  40% { translate: 12px 0; rotate: 1deg; }
+  65% { translate: -7px 0; }
+  85% { translate: 3px 0; }
+}
+
+.is-rout .game-verdict-word { color: var(--yolk); }
+
+.game-face { grid-area: 1 / 1; display: flex; flex-direction: column; min-width: 0; }
+
+.is-revealed .game-question, .game-card:not(.is-revealed) .game-reveal { visibility: hidden; }
+
+.game-question { justify-content: space-between; gap: var(--space-3); }
+
+.game-sticker {
+  /* Takes what the words leave, so the sticker never makes the card taller on a short screen. */
+  flex: 1 1 0;
+  position: relative;
+  min-height: 96px;
+  max-height: 340px;
+  margin-block: auto;
+  rotate: -7deg;
+  animation: drop 420ms var(--ease) backwards;
+}
+
+.game-sticker svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.game-q { display: grid; gap: 2px; margin: 0; font-family: var(--display); font-weight: 400; outline: 0; }
+
+.game-q-since { font-size: clamp(1.375rem, 8cqw, 3rem); line-height: 1.1; }
+
+.game-q-product { color: var(--yolk); font-size: clamp(2rem, 12.4cqw, 5.5rem); line-height: 1.02; letter-spacing: -0.01em; }
+
+.game-q-rest { margin-top: var(--space-1); color: var(--on-card-soft); font-size: clamp(1.125rem, 5.4cqw, 2rem); line-height: 1.18; text-wrap: balance; }
+
+.game-reveal { gap: var(--space-3); }
+
+.game-verdict { display: flex; align-items: center; gap: var(--space-3); }
+
+.game-seal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-full);
+  rotate: -8deg;
+}
+
+.is-revealed .game-seal { animation: game-stamp 300ms var(--ease) backwards; }
+
+@keyframes game-stamp {
+  from { opacity: 0; scale: 1.9; }
+}
+
+.game-seal svg { width: 62%; }
+
+.game-seal-right { background: var(--yolk); color: var(--on-yolk); }
+
+/* Hollow against the filled yolk one, so right and wrong differ in shape as well as colour. */
+.game-seal-wrong { box-shadow: inset 0 0 0 3px var(--on-card); color: var(--on-card); }
+
+.game-verdict-word { font: 400 clamp(1.5rem, 9.6cqw, 3.5rem)/1.05 var(--display); white-space: nowrap; }
+
+.game-verdict-note { color: var(--on-card-soft); font-size: 0.9375rem; font-weight: 700; }
+
+/* Holds its line while empty, so a streak's news moves nothing. */
+.game-verdict-streak { min-height: 1.45em; color: var(--on-card); font-size: 0.9375rem; font-weight: 700; white-space: nowrap; }
+
+.game-verdict-record { color: var(--yolk); font-family: var(--display); font-weight: 400; animation: game-stamp 300ms var(--ease) 200ms backwards; }
+
+/* A scale's ticket: the lines need the plate, since ember and ghost don't reach 3:1 on the oxblood. */
+.game-ticket {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-m);
+  background: var(--plate);
+  color: var(--ink);
+}
+
+.game-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--ink-soft);
+  font-size: 0.9375rem;
+  line-height: 1.2;
+}
+
+.game-line b { flex: none; font: 400 clamp(1.5rem, 9cqw, 2.75rem)/1.05 var(--display); }
+
+.game-line-product { color: var(--ink); font-weight: 700; }
+
+.game-line-product b { color: var(--ember); }
+
+.spark {
+  position: relative;
+  flex: 1;
+  min-height: clamp(96px, 12dvh, 200px);
+  /* The label gutter, and a little head room for the top dot. */
+  margin: var(--space-3) 104px var(--space-2) 6px;
+}
+
+.spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+.is-revealed .spark svg { animation: race 700ms var(--ease) backwards; }
+
+.spark polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spark-label {
+  position: absolute;
+  left: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  translate: 0 -50%;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.spark-product { color: var(--ink); font-weight: 700; }
+
+.spark-label .swatch { width: 10px; }
+
+.game-actions { display: grid; min-height: var(--answers); }
+
+.game-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+
+.game-answer, .game-next {
+  min-height: calc(var(--answers) - 4px);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-l);
+  font: 400 clamp(1.625rem, 7vw, 2.25rem)/1 var(--display);
+}
+
+.game-answer-down {
+  background: var(--plate);
+  box-shadow: inset 0 0 0 2.5px var(--ink), 0 4px 0 var(--ink);
+  color: var(--ink);
+}
+
+.game-answer-down:active { box-shadow: inset 0 0 0 2.5px var(--ink), 0 1px 0 var(--ink); }
+
+@media (hover: hover) {
+  .game-answer-down:hover { box-shadow: inset 0 0 0 2.5px var(--ink), 0 6px 0 var(--ink); }
+}
+
+.game-score { display: flex; align-items: baseline; gap: var(--space-3); margin: var(--space-1) 0 var(--space-2); font-weight: 400; outline: 0; }
+
+.game-score .big { --number: clamp(112px, min(42cqw, 26dvh), 236px); }
+
+.game-score .unit { font-size: clamp(2rem, 12cqw, 4.5rem); }
+
+.game-tray {
+  --columns: 5;
+  max-width: 460px;
+  margin-block: var(--space-2) var(--space-4);
+}
+
+.game-tray span { animation-delay: calc(var(--index) * 60ms + 200ms); }
+
+.game-band { font: 400 clamp(1.25rem, min(6.4cqw, 4dvh), 2.25rem)/1.15 var(--display); text-wrap: balance; }
+
+.game-streaks { display: grid; gap: 2px; margin-top: var(--space-3); font-weight: 700; }
+
+.game-record { color: var(--yolk); font-weight: 700; }
+
+.game-end .card-foot { padding-top: var(--space-3); }
+
+.game-end-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
+
+/* Next to Otra partida, not stuck on the card's edge as on the first tab. */
+.game-end-actions .share-row { margin: 0; padding: 0; }
+
+.game-end-actions .share-row > .cta, .game-end-actions .share-actions { flex: 1; }
+
+.game-end-actions .cta { width: 100%; min-height: 64px; padding-inline: var(--space-2); border-radius: var(--radius-l); font: 400 1.25rem/1.05 var(--display); }
+
+/* The fallback's two buttons take a row of their own, with Otra partida under them. */
+.game-end-actions:has(.share-actions) { grid-template-columns: minmax(0, 1fr); }
+
+.game-end-actions .share-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); width: 100%; }
+
+.game-end-actions .share-actions .cta { min-height: 64px; font-size: 1.0625rem; }
+
+/* A phone under browser bars: the tab above already names the game, and the buttons must stay on screen. */
+@media (max-width: 959px) and (max-height: 760px) {
+  .game { --answers: 76px; }
+
+  .game-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .game-card { min-height: max(280px, 100dvh - 245px); padding-block: var(--space-3); }
+
+  .game:has(.shared) .game-card { min-height: max(280px, 100dvh - 299px); }
+
+  /* The buttons stay on screen and may cover the card's foot, so the words go first and the sticker takes the covered part. */
+  .game-actions:not(.game-end-actions) { position: sticky; bottom: var(--space-2); z-index: 1; }
+
+  .game-question { flex-direction: column-reverse; }
+
+  .game-sticker { min-height: 0; }
+
+  .game-q-since { font-size: min(8cqw, 7dvh); }
+
+  .game-q-product { font-size: min(12.4cqw, 11dvh); }
+
+  .game-q-rest { font-size: min(5.4cqw, 5dvh); }
+
+  .game-reveal { gap: var(--space-2); }
+
+  .game-verdict { gap: var(--space-2); }
+
+  .game-seal { width: 44px; height: 44px; }
+
+  .game-ticket { gap: var(--space-1); padding-block: var(--space-2); }
+
+  .spark { min-height: 64px; margin-block: var(--space-3) var(--space-1); }
+
+  .game-reveal .card-foot { padding-top: 0; }
+
+  /* The end screen is the one to screenshot, so Compartir has to fit with it. */
+  .game-score .big { --number: clamp(96px, 17dvh, 130px); }
+
+  .game-tray { max-width: 34dvh; margin-block: 0 var(--space-2); }
+
+  .game-band { font-size: 1.125rem; }
+
+  .game-streaks { margin-top: var(--space-1); font-size: 0.9375rem; }
+
+  .game-end .card-foot { padding-top: var(--space-1); }
+
+  .game-end-actions .cta, .game-end-actions .share-actions .cta { min-height: 56px; }
+}
+
+@media (min-width: 960px) {
+  .game { --answers: 104px; }
+
+  .game-board { gap: var(--space-4); }
+
+  .game-title { margin: 0; font-size: clamp(2.75rem, 4.6vw, 4.5rem); line-height: 1.02; }
+
+  .game-title svg { width: 72px; height: 72px; }
+
+  .game-count { font-size: clamp(2.5rem, 4vw, 3.5rem); }
+
+  .game-streak { min-height: 56px; padding-inline: var(--space-4); font-size: 1.375rem; }
+
+  /* The stickers won so far are the board's whole show here, with room to be seen. */
+  .game-marks { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); }
+
+  .game-mark { max-width: none; }
+
+  .game-card { min-height: calc(100dvh - 240px); padding: var(--space-6) 40px; }
+
+  .game:has(.shared) .game-card { min-height: calc(100dvh - 240px); }
+
+  /* One row: the width is there, and two would push Compartir under the fold on a laptop. */
+  .game-tray { --columns: 10; max-width: none; }
+}
+
+/* After the blocks above, whose card heights are for rounds and would otherwise stretch the end card by source order. */
+.game-end, .game:has(.shared) .game-end { min-height: 0; align-content: start; }

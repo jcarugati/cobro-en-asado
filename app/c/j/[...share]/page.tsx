@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import * as Option from "effect/Option";
+import { Game } from "../../../../src/components/Game.tsx";
 import { decodeGameSegments, gameRounds, gameSharedLine, gameCardPath } from "../../../../src/domain/game.ts";
 import { loadSnapshot } from "../../../../src/server/loadSnapshot.ts";
 
@@ -13,11 +14,11 @@ async function sharedResult({ params }: Props) {
   if (Option.isNone(input)) notFound();
   const snapshot = await loadSnapshot();
   if (Option.isNone(gameRounds(snapshot, input.value))) notFound();
-  return input.value;
+  return { result: input.value, snapshot };
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
-  const result = await sharedResult(props);
+  const { result } = await sharedResult(props);
   const title = gameSharedLine(result);
   const description = "¿Subió más o menos que la inflación?";
   const image = { url: gameCardPath(result), width: 1200, height: 630 };
@@ -29,6 +30,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 }
 
 export default async function SharedPage(props: Props) {
-  const result = await sharedResult(props);
-  return <main><p>{gameSharedLine(result)}</p></main>;
+  const { result, snapshot } = await sharedResult(props);
+  return <Game snapshot={snapshot} seed={result.seed} month={result.month} shared={result} />;
 }
