@@ -110,7 +110,7 @@ card image     /card/<the same segments>
 | Decision | Why |
 |---|---|
 | Plan URLs hold no pesos; plan cards read the cached snapshot | Public people and months reproduce the same shopping basket without letting a forged URL invent an INDEC price |
-| Game candidates need both a 5 percentage point gap and a 5% relative gap | The first removes close short-span answers; the second removes coin flips when decades of inflation make 5 points negligible |
+| Game candidates need a 5 percentage point gap and prefer a 12% relative gap, falling back to 5% if no balanced game exists | The 5 pp rule stays as the owner asked; 5% made most reveals coin flips, while 20% left 17 of 21 products with one fixed answer and real months with no game. The fallback keeps the game alive when a release leaves too few products |
 | Games require five más and five menos answers with distinct products, reserving enough products for the remaining answers or returning none | Always tapping the same answer scores five, and reserving products prevents early choices from exhausting one side in historical months |
 | Game URLs pin seed and month | Friends replay the same questions even after a new data release |
 | Work time defaults to 176 hours and defines a day as monthly hours / 22 | Eight hours times 22 workdays makes the assumption explicit and lets an edited monthly total retain the same day definition |

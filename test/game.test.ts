@@ -20,7 +20,7 @@ it("keeps 200 seeded games deterministic, balanced, distinct and unambiguous", (
     expect(scoreAnswers(game, Array.from({ length: 10 }, () => "menos" as const)).score).toBe(5);
     for (const round of game) {
       expect(Math.abs(round.productChange - round.ipcChange)).toBeGreaterThanOrEqual(0.05);
-      expect(Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1)).toBeGreaterThanOrEqual(0.05);
+      expect(Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1)).toBeGreaterThanOrEqual(0.12);
       expect(round.answer).toBe(round.productChange > round.ipcChange ? "mas" : "menos");
       expect(Option.getOrThrow(monthIndex(snapshot, round.month)) - Option.getOrThrow(monthIndex(snapshot, round.start))).toBeGreaterThanOrEqual(12);
     }
@@ -73,10 +73,25 @@ it("pins game sharing", () => {
   expect(gameShareTarget(result)).toEqual({ path: "/c/j/8/10/42/202609", card: gameCardPath(result), text: gameCardLines(result).headline });
 });
 
-it("preserves a balanced historical game for seed 145 in January 2024", () => {
+it("reserves enough products for both answer quotas for seed 145 in January 2024", () => {
   const game = rounds(145, "202401");
   expect(game.filter((round) => round.answer === "mas")).toHaveLength(5);
   expect(game.filter((round) => round.answer === "menos")).toHaveLength(5);
+  expect(game.every((round) => Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1) >= 0.12)).toBe(true);
+});
+
+it("falls back to five percent for seed 0 in June 2018", () => {
+  const game = rounds(0, "201806");
+  expect(game).toEqual(rounds(0, "201806"));
+  expect(game).toHaveLength(10);
+  expect(new Set(game.map((round) => round.unit)).size).toBe(10);
+  expect(game.filter((round) => round.answer === "mas")).toHaveLength(5);
+  expect(game.filter((round) => round.answer === "menos")).toHaveLength(5);
+  expect(game.some((round) => Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1) < 0.12)).toBe(true);
+  for (const round of game) {
+    expect(Math.abs(round.productChange - round.ipcChange)).toBeGreaterThanOrEqual(0.05);
+    expect(Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1)).toBeGreaterThanOrEqual(0.05);
+  }
 });
 
 const historicalMonths = [...Array.from({ length: Math.ceil((snapshot.ipc.length - 1) / 12) }, (_, index) => monthAt(snapshot, index * 12)), "202401"];
@@ -96,4 +111,25 @@ it("returns none when distinct products cannot fill both answer quotas", () => {
   oneSided.ipc = oneSided.ipc.map(() => 1);
   for (const prices of Object.values(oneSided.prices)) prices.forEach((_, index) => { prices[index] = index + 1; });
   expect(Option.isNone(gameRounds(oneSided, { seed: 145, month: "202401" }))).toBe(true);
+});
+
+it.each([1, 1.06])("keeps games balanced after 12 months of prices ×%s and IPC ×1.02", (growth) => {
+  const future = structuredClone(snapshot);
+  for (let month = 0; month < 12; month++) {
+    future.ipc.push(future.ipc.at(-1)! * 1.02);
+    for (const prices of Object.values(future.prices)) prices.push(prices.at(-1)! * growth);
+  }
+  future.lastMonth = "202709";
+  for (let seed = 0; seed < 20; seed++) {
+    const game = rounds(seed, "202709", future);
+    expect(game).toEqual(rounds(seed, "202709", future));
+    expect(game).toHaveLength(10);
+    expect(new Set(game.map((round) => round.unit)).size).toBe(10);
+    expect(game.filter((round) => round.answer === "mas")).toHaveLength(5);
+    expect(game.filter((round) => round.answer === "menos")).toHaveLength(5);
+    for (const round of game) {
+      expect(Math.abs(round.productChange - round.ipcChange)).toBeGreaterThanOrEqual(0.05);
+      expect(Math.abs((1 + round.productChange) / (1 + round.ipcChange) - 1)).toBeGreaterThanOrEqual(0.05);
+    }
+  }
 });

@@ -12,8 +12,10 @@ export type Answer = "mas" | "menos";
 export type Round = { unit: UnitSlug; start: Month; month: Month; productChange: number; ipcChange: number; answer: Answer };
 // Five percentage points keep short-span differences visible.
 const MIN_POINT_GAP = 0.05;
-// A five-percent relative gap also removes coin flips across decades of inflation.
-const MIN_RELATIVE_GAP = 0.05;
+// Twelve percent keeps reveals meaningful without fixing most products to one answer.
+const PREFERRED_RELATIVE_GAP = 0.12;
+// Five percent keeps balanced games available when a release leaves too few products.
+const FALLBACK_RELATIVE_GAP = 0.05;
 
 function mulberry32(seed: number): () => number {
   return () => {
@@ -36,36 +38,39 @@ function shuffled<T>(values: readonly T[], random: () => number): T[] {
 export function gameRounds(snapshot: Snapshot, input: { seed: number; month: Month }): Option.Option<readonly Round[]> {
   const end = monthIndex(snapshot, input.month);
   if (!Number.isInteger(input.seed) || input.seed < 0 || input.seed > MAX_SEED || Option.isNone(end) || end.value < 12) return Option.none();
-  const candidates = UNITS.map((unit) => {
-    const rounds: Round[] = [];
-    for (let index = 0; index <= end.value - 12; index++) {
-      const productChange = snapshot.prices[unit.slug][end.value]! / snapshot.prices[unit.slug][index]! - 1;
-      const ipcChange = snapshot.ipc[end.value]! / snapshot.ipc[index]! - 1;
-      if (Math.abs(productChange - ipcChange) < MIN_POINT_GAP || Math.abs((1 + productChange) / (1 + ipcChange) - 1) < MIN_RELATIVE_GAP) continue;
-      rounds.push({ unit: unit.slug, start: monthAt(snapshot, index), month: input.month, productChange, ipcChange, answer: productChange > ipcChange ? "mas" : "menos" });
-    }
-    return rounds;
-  });
-  const random = mulberry32(input.seed);
-  const targets = shuffled<Answer>(["mas", "mas", "mas", "mas", "mas", "menos", "menos", "menos", "menos", "menos"], random);
-  const used = new Set<UnitSlug>();
-  const rounds: Round[] = [];
-  for (const target of targets) {
-    const available = shuffled(candidates.filter((items) => items.length > 0 && !used.has(items[0]!.unit)), random);
-    const remainingTargets = targets.slice(rounds.length + 1);
-    const unit = available.find((items) => {
-      if (!items.some((round) => round.answer === target)) return false;
-      const remaining = available.filter((other) => other !== items);
-      return remaining.length >= remainingTargets.length && (["mas", "menos"] as const).every((answer) =>
-        remaining.filter((other) => other.some((round) => round.answer === answer)).length >= remainingTargets.filter((next) => next === answer).length);
+  for (const relativeGap of [PREFERRED_RELATIVE_GAP, FALLBACK_RELATIVE_GAP]) {
+    const candidates = UNITS.map((unit) => {
+      const rounds: Round[] = [];
+      for (let index = 0; index <= end.value - 12; index++) {
+        const productChange = snapshot.prices[unit.slug][end.value]! / snapshot.prices[unit.slug][index]! - 1;
+        const ipcChange = snapshot.ipc[end.value]! / snapshot.ipc[index]! - 1;
+        if (Math.abs(productChange - ipcChange) < MIN_POINT_GAP || Math.abs((1 + productChange) / (1 + ipcChange) - 1) < relativeGap) continue;
+        rounds.push({ unit: unit.slug, start: monthAt(snapshot, index), month: input.month, productChange, ipcChange, answer: productChange > ipcChange ? "mas" : "menos" });
+      }
+      return rounds;
     });
-    if (!unit) return Option.none();
-    const choices = unit.filter((round) => round.answer === target);
-    const round = choices[Math.floor(random() * choices.length)]!;
-    used.add(round.unit);
-    rounds.push(round);
+    const random = mulberry32(input.seed);
+    const targets = shuffled<Answer>(["mas", "mas", "mas", "mas", "mas", "menos", "menos", "menos", "menos", "menos"], random);
+    const used = new Set<UnitSlug>();
+    const rounds: Round[] = [];
+    for (const target of targets) {
+      const available = shuffled(candidates.filter((items) => items.length > 0 && !used.has(items[0]!.unit)), random);
+      const remainingTargets = targets.slice(rounds.length + 1);
+      const unit = available.find((items) => {
+        if (!items.some((round) => round.answer === target)) return false;
+        const remaining = available.filter((other) => other !== items);
+        return remaining.length >= remainingTargets.length && (["mas", "menos"] as const).every((answer) =>
+          remaining.filter((other) => other.some((round) => round.answer === answer)).length >= remainingTargets.filter((next) => next === answer).length);
+      });
+      if (!unit) break;
+      const choices = unit.filter((round) => round.answer === target);
+      const round = choices[Math.floor(random() * choices.length)]!;
+      used.add(round.unit);
+      rounds.push(round);
+    }
+    if (rounds.length === GAME_ROUNDS) return Option.some(rounds);
   }
-  return Option.some(rounds);
+  return Option.none();
 }
 
 export function roundSeries(snapshot: Snapshot, round: Round): { product: number[]; ipc: number[] } {
