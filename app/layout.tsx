@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import { Nav } from "../src/components/Nav.tsx";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,5 +33,5 @@ const body = localFont({
 });
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="es-AR" className={`${display.variable} ${body.variable}`}><body>{children}</body></html>;
+  return <html lang="es-AR" className={`${display.variable} ${body.variable}`}><body><Nav />{children}</body></html>;
 }

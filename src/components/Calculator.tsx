@@ -1,13 +1,17 @@
 "use client";
 
-import { type ChangeEvent, type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import * as Result from "effect/Result";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, iconGrid, unitsFor } from "../domain/calc.ts";
-import { countPhrase, formatCount, formatPercent, formatPesos, MONTH_NAMES, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
-import { caretAfterGrouping, groupWhileTyping, parsePay, withDots } from "../domain/pay.ts";
+import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
+import { parsePay } from "../domain/pay.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
 import { cardLines, shareResultFor, sharedLine, sharedParts, shareTarget, type ShareResult } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
+import { BigNumber } from "./BigNumber.tsx";
+import { typedPay, rememberPay } from "./memory.ts";
+import { Money } from "./Money.tsx";
+import { MonthPicker } from "./MonthPicker.tsx";
 import { RaceChart } from "./RaceChart.tsx";
 import { Share } from "./Share.tsx";
 import { UnitIcon } from "./UnitIcon.tsx";
@@ -27,30 +31,6 @@ function amountOf(text: string): number | null {
   return Result.isSuccess(parsed) ? parsed.success : null;
 }
 
-function BigNumber({ value, from }: { value: number; from: number }) {
-  const target = Math.round(value);
-  const [shown, setShown] = useState(from);
-
-  useLayoutEffect(() => {
-    const start = shown;
-    if (start === target) return;
-    // The size is fitted to the target, so counting down through longer numbers would overflow.
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || formatCount(start).length > formatCount(target).length) {
-      setShown(target);
-      return;
-    }
-    const began = performance.now();
-    let frame = requestAnimationFrame(function step(now) {
-      const progress = Math.min(1, Math.max(0, (now - began) / 650));
-      setShown(Math.round(start + (target - start) * (1 - (1 - progress) ** 3)));
-      if (progress < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [target]);
-
-  return <span className="big">{formatCount(shown)}</span>;
-}
-
 function Tray({ unit, count }: { unit: UnitSlug; count: number }) {
   const { icons, columns } = iconGrid(count);
   return (
@@ -58,70 +38,6 @@ function Tray({ unit, count }: { unit: UnitSlug; count: number }) {
       {Array.from({ length: icons }, (_, index) => (
         <span key={index} style={{ "--index": index } as CSSProperties}><UnitIcon unit={unit} /></span>
       ))}
-    </div>
-  );
-}
-
-function Money({ id, label, value, onChange, example, note, large }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (text: string) => void;
-  example: string;
-  note?: string;
-  large?: boolean;
-}) {
-  const parsed = parsePay(value);
-  const invalid = Result.isFailure(parsed) && parsed.failure === "invalid";
-  const [hint, setHint] = useState("");
-
-  // Typing 1.200.000 with its dots passes through invalid text like 1.2, so the hint waits for a pause in typing.
-  useEffect(() => {
-    const timer = setTimeout(() => setHint(invalid ? `Escribilo así: ${example}` : ""), invalid ? 700 : 0);
-    return () => clearTimeout(timer);
-  }, [invalid, example, value]);
-
-  function regroup(event: ChangeEvent<HTMLInputElement>) {
-    const field = event.currentTarget;
-    const typed = field.value;
-    const { inputType } = event.nativeEvent as InputEvent;
-    // A paste may carry a decimal point, so it only gets dots if it already parses.
-    if (inputType === "insertFromPaste" || inputType === "insertFromDrop") return onChange(withDots(typed));
-    // Deleting from a valid amount only leaves its own group dots. Anything else may hold a dot meant as a decimal point.
-    const grouped = groupWhileTyping(typed, invalid || !inputType?.startsWith("delete"));
-    if (grouped !== typed) {
-      const kept = typed.slice(0, field.selectionStart ?? typed.length).replace(/\./g, "").length;
-      const caret = caretAfterGrouping(grouped, kept);
-      // Delete steps over a dot, or it would stop there forever.
-      const at = inputType === "deleteContentForward" && grouped[caret] === "." ? caret + 1 : caret;
-      // Written here so React finds it already done and leaves the caret alone.
-      field.value = grouped;
-      field.setSelectionRange(at, at);
-    }
-    onChange(grouped);
-  }
-
-  return (
-    <div className={large ? "money money-large" : "money"}>
-      <label htmlFor={id}>{label}</label>
-      <div className="field">
-        <span aria-hidden="true">$</span>
-        {/* numeric: iOS decimal pads show only the locale's comma, and pay is written with dots. */}
-        <input
-          id={id}
-          inputMode="numeric"
-          autoComplete="off"
-          autoFocus={large}
-          spellCheck={false}
-          placeholder={large ? example : undefined}
-          value={value}
-          onChange={regroup}
-          aria-invalid={invalid}
-          aria-describedby={`${id}-hint${note ? ` ${id}-note` : ""}`}
-        />
-      </div>
-      {note && <p id={`${id}-note`} className="note">{note}</p>}
-      <p id={`${id}-hint`} className="hint" aria-live="polite">{hint}</p>
     </div>
   );
 }
@@ -226,32 +142,13 @@ function Past({ snapshot, unit, overridden, printed, hidden, form, onForm, month
 }) {
   const { monthNumber, year, oldPayText } = form;
 
-  // Years before the data start stay on the list, so they get the refusal instead of a silent limit.
-  const lastYear = Number(snapshot.lastMonth.slice(0, 4));
-  const years = Array.from({ length: lastYear - 2009 }, (_, index) => lastYear - index);
-
   const check = month ? checkPastMonth(snapshot, month) : null;
 
   return (
     <details hidden={hidden} onToggle={(event) => onOpen(event.currentTarget.open)}>
       <summary>¿Y antes?</summary>
       <div className="panel">
-        <div className="when">
-          <div>
-            <label htmlFor="past-month">Mes</label>
-            <select id="past-month" value={monthNumber} onChange={(event) => onForm({ monthNumber: event.target.value })}>
-              <option value="">Elegí</option>
-              {MONTH_NAMES.map((name, index) => <option key={name} value={String(index + 1).padStart(2, "0")}>{name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="past-year">Año</label>
-            <select id="past-year" value={year} onChange={(event) => onForm({ year: event.target.value })}>
-              <option value="">Elegí</option>
-              {years.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-        </div>
+        <MonthPicker snapshot={snapshot} monthNumber={monthNumber} year={year} onChange={onForm} />
         <Money id="past-pay" label="Lo que cobrabas ese mes" value={oldPayText} onChange={(text) => onForm({ oldPayText: text })} example="30.000" />
         <div className="past" aria-live="polite">
           {check && Result.isFailure(check) && (
@@ -275,9 +172,9 @@ function Past({ snapshot, unit, overridden, printed, hidden, form, onForm, month
 }
 
 export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: ShareResult }) {
-  const [payText, setPayText] = useState("");
+  const [payText, setPayText] = useState(() => typedPay());
   // Last valid pay: half-typed text like 1.2 keeps the result on screen instead of flashing the opening state.
-  const [pay, setPay] = useState<number | null>(null);
+  const [pay, setPay] = useState(() => amountOf(typedPay()));
   const [preset, setPreset] = useState<Preset | null>(null);
   const beforePreset = useRef<{ text: string; pay: number | null }>({ text: "", pay: null });
   const [unit, setUnit] = useState<UnitSlug>(shared?.unit ?? "asado");
@@ -332,6 +229,7 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
           example="1.200.000"
           value={payText}
           onChange={(text) => {
+            rememberPay(text);
             setPayText(text);
             setPreset(null);
             const parsed = parsePay(text);

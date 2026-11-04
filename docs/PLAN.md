@@ -136,6 +136,8 @@ card image     /card/<the same segments>
 | The picker shows six units and `Más` opens a sheet with all 22 | The 22-tile wall was the page's loudest element. Asado, yerba, cerveza, vino, dulce de leche and pañales stay in reach, and a unit picked from the sheet takes the first place |
 | Money fields regroup on every keystroke | The brief asks for live thousands separators. A deletion always regroups, so `1.200.00` can't be left behind. A dot just typed waits for its digits, and a paste goes through `withDots`, so `1200000.50` is refused either way and not read as 120 million |
 | Share pages show the friend's result on the card and start on its unit | The page was an empty calculator under one line, which is a flat place to land from a shared link. The card turns into the visitor's own result as soon as they type. It prints the month from the link and no price, since that count may come from an older release or a butcher's price. The line above the input stays, as the design asks, because it outlasts the card once the visitor types |
+| The typed pay lives in a module variable (`src/components/memory.ts`), not in storage | `docs/DESIGN.md` keeps pesos out of URLs, cards, logs and storage, and `El número no se manda a ningún lado` is a promise. A variable survives moving between tabs and dies on a reload, on purpose. Only event handlers write it, so the server never holds a value. Only the pay is remembered: the override, the past form and the unit reset |
+| The nav is plain anchors plus `router.push`, not `next/link` | `test/no-early-request.test.ts` forbids `next/link` under `src/components`, and the link component requests routes on its own. Anchors keep the keyboard, a middle click and no-JS working; a plain left click swaps the page without a reload, so the pay in memory survives |
 | Icons are drawn from one data file, on the page and the card | The card route can't fetch, so emoji are out, and system emoji would differ per phone anyway |
 
 ## Follow-ups
@@ -143,7 +145,10 @@ card image     /card/<the same segments>
 - On a phone the dotted kilos leader can cross the last month label for own months 202603 to 202607.
 - On a phone the chart starts about 1,000 px down the page and nothing points to it.
 - With `Tu sueldo` at x0,01 on a short range, the `x1,50` and `x1,25` axis labels touch. Absurd input only, and still legible.
-- The client bundle has little room left: 161,263 bytes gzip for `/`, measured as this file describes, against 164,904 (the 134,904 baseline plus 30 KB). That leaves about 3.6 KB.
+- The client bundle has little room left: 161,890 bytes gzip for `/`, measured as this file describes, against 164,904 (the 134,904 baseline plus 30 KB). That leaves about 3.0 KB.
+- On a phone at 390x844, a share page's card now ends 16 px below the first screen, because of the nav row, and after typing on that page with touch `Compartir` sits at 834–886, so only 10 px shows. `/` still fits.
+- At 320 px wide the three tabs wrap to two rows instead of scrolling the page. At 360 px they fit one row.
+- `/favicon.ico` answers 404, because the app only declares `icon.svg`. Chrome occasionally asks for it anyway and logs a console error. Seen locally after a cold server start, cause not pinned down.
 - Preset cards: share is typed pay only.
 - An override is forgotten when switching units and back. The headline loses its label, so it is honest but mildly annoying.
 - Real phones, Web Share sheets, real screen readers, Safari and Firefox were never tested.

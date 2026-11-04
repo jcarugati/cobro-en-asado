@@ -6,7 +6,12 @@ import { afterShareError, type ShareTarget } from "../domain/share.ts";
 const FILE_NAME = "cobro-en-asado.png";
 const CARD_TIMEOUT_MS = 10_000;
 
-export function Share({ target, comparing }: { target: ShareTarget | null; comparing: boolean }) {
+export function Share({ target, comparing, label, warning = true }: {
+  target: ShareTarget | null;
+  comparing: boolean;
+  label?: string;
+  warning?: boolean;
+}) {
   const [step, setStep] = useState<"idle" | "preparing" | "retry" | "fallback">("idle");
   const [note, setNote] = useState("");
   const [linkShown, setLinkShown] = useState(false);
@@ -74,19 +79,19 @@ export function Share({ target, comparing }: { target: ShareTarget | null; compa
     // Hidden, not removed: a block that comes and goes would move what is below it under the finger that tapped.
     <div className="share" style={target ? undefined : { visibility: "hidden" }}>
       <div className={comparing || step === "fallback" ? "share-row share-row-long" : "share-row"}>
-        <p id="share-warning">Con una calculadora se puede estimar tu sueldo a partir de esto.</p>
+        {warning && <p id="share-warning">Con una calculadora se puede estimar tu sueldo a partir de esto.</p>}
         {target && step === "fallback" ? (
           <div className="share-actions">
             <button type="button" className="cta" autoFocus onClick={() => void copyLink(target.path)}>Copiar link</button>
             <a className="cta cta-quiet" href={target.card} download={FILE_NAME} onClick={() => setNote("Descargando la imagen")}>Descargar imagen</a>
           </div>
         ) : (
-          <button type="button" className="cta" aria-describedby="share-warning" aria-busy={step === "preparing"} onClick={tap}>
+          <button type="button" className="cta" aria-describedby={warning ? "share-warning" : undefined} aria-busy={step === "preparing"} onClick={tap}>
             <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
               <path d="M10 13V3M6 6.5 10 2.5l4 4M4 11v5.5h12V11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {/* The button is far from the comparison it sends, so it says so. */}
-            {comparing ? "Compartir la comparación" : "Compartir"}
+            {label ?? (comparing ? "Compartir la comparación" : "Compartir")}
           </button>
         )}
       </div>
