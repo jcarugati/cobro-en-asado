@@ -252,7 +252,8 @@ export function RaceChart({ snapshot, unit, past, overridden }: {
 
   // ¿Y antes? allows the wage index's last month, which has nothing to chart.
   const ownMonth = past && Option.isSome(chartData(snapshot, { unit, wage, start: past.month })) ? past.month : null;
-  const [seenMonth, setSeenMonth] = useState(ownMonth);
+  // Starts empty: the chart loads late, so it can mount with a month already chosen.
+  const [seenMonth, setSeenMonth] = useState<typeof ownMonth>(null);
   if (ownMonth !== seenMonth) {
     setSeenMonth(ownMonth);
     if (ownMonth !== null) setRange("own");

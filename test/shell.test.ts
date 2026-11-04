@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it } from "vitest";
-import { Calculator } from "../src/components/Calculator.tsx";
+import { Calculator, punchLines } from "../src/components/Calculator.tsx";
 import { rememberPay } from "../src/components/memory.ts";
 import { activeTab } from "../src/components/Nav.tsx";
 import { Share } from "../src/components/Share.tsx";
@@ -21,6 +21,14 @@ it.each([
   ["/no-existe", "/"],
 ])("%s activates the tab %s", (pathname, tab) => {
   expect(activeTab(pathname)).toBe(tab);
+});
+
+it.each([
+  ["a price within the workday gets the clock", 2 + 28 / 60, ["Entrás a\u00a0las\u00a09.", "A las 11:28 ya pagaste 1\u00a0kilo de asado."]],
+  ["a price past the workday gets its length", 90, ["Eso es 11\u00a0días y 2\u00a0h de laburo."]],
+  ["a price under a minute gets no line", 0.001, []],
+])("%s", (_, hours, lines) => {
+  expect(punchLines("asado", hours, 176)).toEqual(lines);
 });
 
 it("Share keeps today's output by default", () => {

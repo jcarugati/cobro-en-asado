@@ -529,19 +529,25 @@ a { color: inherit; }
   .chip, .tab { min-height: 44px; }
 }
 
+/* On a phone it takes its row from the gaps around it, so Compartir stays on the first screen. */
+@media (max-width: 959px) {
+  .view { margin-block: -4px -8px; }
+  .view-none { display: none; }
+}
+
 /* Result card */
 
 .result { display: grid; grid-template-columns: minmax(0, 1fr); }
 
 .card {
   /* Gives up height on short screens, so Compartir stays near the first screen. */
-  --cap: min(160px, 19dvh);
+  --cap: min(160px, 17dvh);
   /* Fills the card for up to 3 characters and shrinks to fit longer counts. */
   --number: min(var(--cap), 100cqw / (max(2.4, var(--chars)) * 0.68));
   container-type: inline-size;
   display: flex;
   flex-direction: column;
-  min-height: 470px;
+  min-height: 440px;
   /* The bottom keeps the source line clear of the share button overlapping the edge. */
   padding: var(--space-4) var(--space-5) 36px;
   border-radius: var(--radius-l);
@@ -559,7 +565,7 @@ a { color: inherit; }
   }
 }
 
-.stale .card, .stale .facts, .stale .past { opacity: 0.35; }
+.stale .card, .stale .facts, .stale .past, .stale .times { opacity: 0.35; }
 
 .card-top {
   display: flex;
@@ -594,6 +600,8 @@ a { color: inherit; }
   margin-left: -0.03em;
   white-space: nowrap;
 }
+
+.big small { font-size: 0.34em; letter-spacing: 0; }
 
 /* Smaller than a number, so its descender clears the unit, and the same height, so nothing moves when the number arrives. */
 .big-unknown {
@@ -657,6 +665,42 @@ a { color: inherit; }
     opacity: 0;
     transform: translateY(-16px) scale(0.6);
   }
+}
+
+/* One proud sticker where the pile goes: a pile would lie about what it counts. */
+.sticker {
+  --columns: 1;
+  --rows: 1;
+  /* Gives way to a long unbroken name, such as 1 desodorante. */
+  flex: 0 1 auto;
+  min-width: 0;
+  width: min(170px, 60cqw, 20dvh);
+  max-width: none;
+}
+
+/* Beside the sticker, not above it, so the clock adds no height and Compartir stays on the first screen. */
+.punch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.punch p {
+  flex: 1;
+  font: 400 clamp(1.125rem, 5.5cqw, 2rem)/1.15 var(--display);
+}
+
+.punch p span { display: block; text-wrap: balance; }
+
+.punch p span:first-child:not(:last-child) { color: var(--on-card-soft); }
+
+/* Under a minute there is no line, and a sticker alone on the right looks like something is missing. */
+.punch:not(:has(p)) { justify-content: flex-start; }
+
+@media (min-width: 960px) {
+  .sticker { width: min(240px, 60cqw, 38dvh); }
 }
 
 .card-foot {
@@ -758,7 +802,31 @@ a { color: inherit; }
 
 .share-actions .cta { min-height: 48px; padding-inline: var(--space-4); font-size: 0.9375rem; }
 
-.share .hint:empty { display: none; }
+.share .hint:empty, .assumption .hint:empty { display: none; }
+
+/* The assumption behind the hours view */
+
+.assumption { display: grid; gap: var(--space-1); margin-top: var(--space-3); }
+
+.assumption label { text-wrap: balance; }
+
+.assumption input {
+  width: 5ch;
+  min-height: 44px;
+  margin-inline: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: var(--plate);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  caret-color: var(--ember);
+}
+
+.assumption input:focus { outline: 0; box-shadow: inset 0 0 0 3px var(--ember); }
 
 /* Disclosures */
 
@@ -812,6 +880,16 @@ details[open]::details-content { block-size: auto; }
   gap: var(--space-3);
   padding: var(--space-1) 0 var(--space-5);
 }
+
+.times { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+
+.times li { display: flex; align-items: center; gap: var(--space-2); }
+
+.times svg { flex: none; width: 32px; height: 32px; filter: drop-shadow(0 1px 1px rgb(58 13 8 / 0.3)); }
+
+.times span { flex: 1; min-width: 0; }
+
+.times b { font: 400 1.125rem/1.1 var(--display); white-space: nowrap; }
 
 .past { display: grid; gap: var(--space-2); }
 
@@ -1218,6 +1296,21 @@ footer {
   .chart-question { font-size: 2rem; }
   .chart-answer { font-size: min(168px, 100cqw / (max(2.4, var(--chars)) * 0.68)); }
   .chart-table table { font-size: 0.875rem; }
+}
+
+/* Holds the chart's height while it loads, so the page's length does not jump. */
+.chart-wait { min-height: 996px; }
+
+@media (min-width: 600px) {
+  .chart-wait { min-height: 913px; }
+}
+
+@media (min-width: 960px) {
+  .chart-wait { min-height: 660px; }
+}
+
+@media print {
+  .chart-wait { display: none; }
 }
 
 /* Error pages */

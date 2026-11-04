@@ -10,4 +10,11 @@ export function rememberPay(text: string) {
   payText = text;
 }
 
-export const typedHours = () => HOURS_PER_MONTH;
+// Not private, but it travels between tabs the same way.
+let hoursPerMonth = HOURS_PER_MONTH;
+
+export const typedHours = () => hoursPerMonth;
+
+export function rememberHours(hours: number) {
+  hoursPerMonth = hours;
+}

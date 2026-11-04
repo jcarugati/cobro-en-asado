@@ -46,4 +46,4 @@ it.each([111, 160, 176])("keeps the last whole workday minute at %s monthly hour
   expect(clockAfter(hours, monthly)).toEqual(Option.some(clock));
   expect(clockAfter((minutes + 1) / 60, monthly)).toEqual(Option.none());
 });
-it.each([[176, "Con 176 horas por mes (8 h × 22 días)."], [160, "Con 160 horas por mes (7,3 h × 22 días)."]])("states the assumption for %s hours", (hours, text) => expect(hoursAssumption(hours)).toBe(text));
+it.each([[176, "Con 176 horas por mes (8 h × 22 días)."], [160, "Con 160 horas por mes (7,3 h × 22 días)."], [1, "Con 1 hora por mes (0,1 h × 22 días)."]])("states the assumption for %s hours", (hours, text) => expect(hoursAssumption(hours)).toBe(text));

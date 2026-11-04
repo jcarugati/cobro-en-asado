@@ -1,6 +1,7 @@
 "use client";
 
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, lazy, Suspense, useEffect, useRef, useState } from "react";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { altUnitOf, canastaShare, checkPastMonth, comparePast, iconGrid, unitsFor } from "../domain/calc.ts";
 import { countPhrase, formatCount, formatPercent, formatPesos, monthLabel, monthWithDe, ownMonthNote, pastLines, unitLabel } from "../domain/format.ts";
@@ -8,13 +9,19 @@ import { parsePay } from "../domain/pay.ts";
 import type { Snapshot } from "../domain/snapshot.ts";
 import { cardLines, shareResultFor, sharedLine, sharedParts, shareTarget, type ShareResult } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
+import { clockAfter, formatHoursPerDay, formatWorkDays, formatWorkTime, HOURS_PER_MONTH, parseHoursPerMonth, WORK_DAYS_PER_MONTH, workHours } from "../domain/worktime.ts";
 import { BigNumber } from "./BigNumber.tsx";
-import { typedPay, rememberPay } from "./memory.ts";
+import { typedHours, typedPay, rememberHours, rememberPay } from "./memory.ts";
 import { Money } from "./Money.tsx";
 import { MonthPicker } from "./MonthPicker.tsx";
-import { RaceChart } from "./RaceChart.tsx";
 import { Share } from "./Share.tsx";
 import { UnitIcon } from "./UnitIcon.tsx";
+
+// Fetched only when its slot comes near, so a visitor who never scrolls to it never pays for it. If its file cannot load, the calculator keeps working without it.
+const RaceChart = lazy(() => import("./RaceChart.tsx").then((module) => ({ default: module.RaceChart })).catch((error: unknown) => {
+  console.error(error);
+  return { default: () => null };
+}));
 
 type Preset = "cbtHogar2" | "crianzaMenor1";
 
@@ -125,6 +132,61 @@ function UnitPicker({ unit, onPick }: { unit: UnitSlug; onPick: (slug: UnitSlug)
   );
 }
 
+// No-break spaces, so a narrow card never leaves a number at the end of a line without its unit.
+export function punchLines(unit: UnitSlug, hours: number, hoursPerMonth: number): string[] {
+  const paidAt = clockAfter(hours, hoursPerMonth);
+  if (Option.isSome(paidAt)) return ["Entrás a\u00a0las\u00a09.", `A las ${paidAt.value} ya pagaste ${countPhrase(unit, 1).replace(" ", "\u00a0")}.`];
+  return hours > hoursPerMonth / WORK_DAYS_PER_MONTH ? [`Eso es ${formatWorkDays(hours, hoursPerMonth).replace(/(\d) /g, "$1\u00a0")} de laburo.`] : [];
+}
+
+// In units of a digit's width: the words are set at the size .big small gives them.
+const timeChars = (time: string) => time.replace(/[\d.]/g, "").length * 0.3 + time.replace(/[^\d.]/g, "").length * 0.85;
+
+function Assumption({ hours, onHours }: { hours: number; onHours: (hours: number) => void }) {
+  const [text, setText] = useState(String(hours));
+  const invalid = Option.isNone(parseHoursPerMonth(text));
+  const [hint, setHint] = useState("");
+  // Typing passes through valid values on its way, as 176 does through 1 when deleted, so leaving a bad field goes back to where it started.
+  const atFocus = useRef(hours);
+  const invalidNow = useRef(invalid);
+  invalidNow.current = invalid;
+  // Leaving the page removes the field without a blur.
+  useEffect(() => () => { if (invalidNow.current) onHours(atFocus.current); }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setHint(invalid ? "Escribí un número de 1 a 744." : ""), invalid ? 700 : 0);
+    return () => clearTimeout(timer);
+  }, [invalid, text]);
+
+  return (
+    <div className="assumption">
+      <label>
+        Calculamos con{" "}
+        <input
+          inputMode="numeric"
+          autoComplete="off"
+          value={text}
+          aria-invalid={invalid}
+          aria-describedby="hours-hint"
+          onFocus={() => { atFocus.current = hours; }}
+          onBlur={() => {
+            if (!invalid) return;
+            setText(String(atFocus.current));
+            onHours(atFocus.current);
+          }}
+          onChange={(event) => {
+            setText(event.target.value);
+            const parsed = parseHoursPerMonth(event.target.value);
+            if (Option.isSome(parsed)) onHours(parsed.value);
+          }}
+        />
+        {` ${hours === 1 ? "hora" : "horas"} por mes (${formatHoursPerDay(hours)} h × ${WORK_DAYS_PER_MONTH} días).`}
+      </label>
+      <p id="hours-hint" className="hint" aria-live="polite">{hint}</p>
+    </div>
+  );
+}
+
 type PastResult = ReturnType<typeof comparePast> | null;
 type PastForm = { monthNumber: string; year: string; oldPayText: string };
 
@@ -181,6 +243,28 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
   const [overrideText, setOverrideText] = useState("");
   const [pastForm, setPastForm] = useState<PastForm>({ monthNumber: "", year: "", oldPayText: "" });
   const [pastOpen, setPastOpen] = useState(false);
+  const [view, setView] = useState<"kilos" | "horas">("kilos");
+  const [hoursPerMonth, setHoursPerMonth] = useState(() => typedHours());
+  // Its 22 icons wait for the first open, as the unit sheet's do.
+  const [timesOpened, setTimesOpened] = useState(false);
+  const chartSlot = useRef<HTMLDivElement>(null);
+  const [chartNear, setChartNear] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setChartNear(true);
+      observer.disconnect();
+      // Small: on a phone the slot starts 72 to 360 px below the first screen, so a wider margin would fetch it with no scroll.
+    }, { rootMargin: "50px" });
+    observer.observe(chartSlot.current!);
+    // A short laptop's slot is below the fold, so the chart would mount behind a keyboard user's focus and Tab would never reach it.
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Tab") setChartNear(true); };
+    addEventListener("keydown", onKey);
+    return () => {
+      observer.disconnect();
+      removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   // Dims the old result only after a pause, so correct typing passing through invalid text never flashes.
   const [settledText, setSettledText] = useState("");
@@ -206,10 +290,21 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
   const pastShown = pastOpen && pastMonth && comparison && Result.isSuccess(comparison) ? { month: pastMonth, ...comparison.success } : null;
   const target = pay !== null && preset === null && !stale ? shareTarget(shareResultFor(snapshot, { unit, pay, overridePrice, past: pastShown })) : null;
 
-  const lead = preset === "cbtHogar2" ? "Por mes, la canasta de una familia tipo son"
+  // A preset is not the visitor's pay, so it has no work time.
+  const typed = pay !== null && preset === null;
+  const hoursView = typed && view === "horas";
+  const timeOf = (price: number) => formatWorkTime(workHours(price, pay!, hoursPerMonth));
+  const time = hoursView ? timeOf(overridePrice ?? priceOf(unit)) : "";
+  const paidHours = hoursView ? workHours(overridePrice ?? priceOf(unit), pay!, hoursPerMonth) : 0;
+  const clock = punchLines(unit, paidHours, hoursPerMonth);
+
+  const lead = hoursView ? `${countPhrase(unit, 1)} son`
+    : preset === "cbtHogar2" ? "Por mes, la canasta de una familia tipo son"
     : preset === "crianzaMenor1" ? "Por mes, criar un bebé menor de 1 año son"
     : "Cobrás";
-  const tail = `${unitLabel(unit, count)}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
+  const tail = hoursView
+    ? `de laburo${overridePrice !== null ? ", a precio de tu carnicería" : ""}.`
+    : `${unitLabel(unit, count)}${overridePrice !== null ? " a precio de tu carnicería" : ""}.`;
 
   // Until the visitor has a number, the card holds the shared result, or the shape of the result to come.
   const friend = amount === null && shared?.unit === unit ? { ...sharedParts(shared), footer: cardLines(shared).footer } : null;
@@ -247,27 +342,45 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
             if (slug !== unit) setOverrideText("");
           }}
         />
+        {/* A preset over a typed pay only hides it, so hiding it adds no movement. With no pay at all, a phone gets the row back: the finger is on the keyboard when it returns, and the input stays put. */}
+        <div className={pay === null && (preset === null || beforePreset.current.pay === null) ? "chips view view-none" : "chips view"} role="group" aria-label="Ver el resultado" style={typed ? undefined : { visibility: "hidden" }}>
+          {(["kilos", "horas"] as const).map((option) => (
+            <button key={option} type="button" className="chip" aria-pressed={view === option} onClick={() => setView(option)}>
+              En {option}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* The stretched slot is what stops the sticky card above the chart: browsers bound a sticky grid item by the whole grid. */}
       <div className="result-slot">
         <section className="result">
           {/* Its own live region, so screen readers reach the result in one sentence. The animated number stays outside it, so only the final sentence is announced. */}
-          <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${formatCount(count)} ${tail}`}</p>
-          <article className="card" style={{ "--chars": amount === null && !friend ? 2 : formatCount(shownCount).length } as CSSProperties}>
+          <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${hoursView ? time : formatCount(count)} ${[tail, ...clock].join(" ")}`}</p>
+          <article className="card" style={{ "--chars": hoursView ? timeChars(time) : amount === null && !friend ? 2 : formatCount(shownCount).length } as CSSProperties}>
             <div aria-hidden="true" className="card-top">
               <span className="lead">{friend ? friend.lead : lead}</span>
               <span className="stamp"><UnitIcon unit="asado" />Cobro en Asado</span>
             </div>
             <p aria-hidden="true" className="headline">
-              {amount === null && !friend
+              {hoursView
+                // The split leaves the digits at the odd places.
+                ? <span className="big">{time.split(/([\d.]+)/).map((part, index) => index % 2 ? part : <small key={index}>{part}</small>)}</span>
+                : amount === null && !friend
                 ? <span className="big big-unknown">¿?</span>
                 : <BigNumber value={shownCount} from={friend ? friend.count : 0} />}
               <span className="unit">{friend ? friend.tail : amount === null ? `${definition.plural}.` : tail}</span>
             </p>
-            {each > 1 && <p aria-hidden="true" className="legend">{`Cada ícono: ${countPhrase(unit, each)}.`}</p>}
+            {!hoursView && each > 1 && <p aria-hidden="true" className="legend">{`Cada ícono: ${countPhrase(unit, each)}.`}</p>}
             {/* One tray per unit, so changing unit drops a new pile while typing only adds to it. */}
-            {amount === null && !friend
+            {hoursView
+              ? (
+                <div className="punch" aria-hidden="true">
+                  {clock.length > 0 && <p>{clock.map((line) => <span key={line}>{line}</span>)}</p>}
+                  <div key={unit} className="tray sticker"><span><UnitIcon unit={unit} /></span></div>
+                </div>
+              )
+              : amount === null && !friend
               ? <div className="ghost"><Tray key={unit} unit={unit} count={18} /></div>
               : <Tray key={unit} unit={unit} count={shownCount} />}
             <div className="card-foot">
@@ -277,13 +390,24 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
             </div>
           </article>
           {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: a regrouped text must not remount the button being tapped, or the tap is lost. */}
-          {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
+          {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} label={hoursView && pastShown === null ? "Compartir en kilos" : undefined} />}
+          {hoursView && (
+            <Assumption
+              hours={hoursPerMonth}
+              onHours={(hours) => {
+                rememberHours(hours);
+                setHoursPerMonth(hours);
+              }}
+            />
+          )}
           <div className="facts" aria-live="polite">
             {amount === null ? (
               <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
             ) : (
               <>
-                <p className="alternate">{`O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
+                <p className="alternate">{hoursView
+                  ? `O ${countPhrase(altUnitOf(unit), 1)}: ${timeOf(priceOf(altUnitOf(unit)))}.`
+                  : `O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
                 {preset === null && (
                   <p>{`Equivale al ${formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA${ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.`}</p>
                 )}
@@ -329,6 +453,23 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
           ))}
         </div>
       </div>
+        <details hidden={!hoursView} onToggle={(event) => { if (event.currentTarget.open) setTimesOpened(true); }}>
+          <summary>Todos los productos en horas</summary>
+          {timesOpened && hoursView && (
+            <div className="panel">
+              <ol className="times">
+                {[...UNITS].sort((a, b) => priceOf(a.slug) - priceOf(b.slug)).map(({ slug }) => (
+                  <li key={slug}>
+                    <UnitIcon unit={slug} />
+                    <span>{countPhrase(slug, 1)}</span>
+                    <b>{timeOf(priceOf(slug))}</b>
+                  </li>
+                ))}
+              </ol>
+              <p className="note">{printed}{overridePrice !== null && ". Esta lista usa precios INDEC, no el de tu carnicería."}</p>
+            </div>
+          )}
+        </details>
         {/* Stays mounted so correcting the pay keeps its three fields. */}
         <Past
           snapshot={snapshot}
@@ -349,7 +490,7 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
               <Money
                 id="override"
                 label={`Precio por ${definition.priceUnit}`}
-                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande y los íconos.`}
+                note={`Precio promedio INDEC: ${formatPesos(priceOf(unit))}. Cambia solo el número grande${hoursView ? " y la hora" : " y los íconos"}.`}
                 example={formatCount(priceOf(unit))}
                 value={overrideText}
                 onChange={setOverrideText}
@@ -364,17 +505,23 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
             <p>Las fuentes son del INDEC: precios promedio e IPC de GBA, canasta básica total y canasta de crianza. Los datos son de {monthWithDe(snapshot.lastMonth)}.</p>
             <p>Vale solo para GBA. Son promedios publicados, no el precio de una carnicería ni de una marca, y salen con demora: el INDEC los publica el mes siguiente.</p>
             <p>¿Y antes? compara con los precios en general (IPC GBA). No es una medida de tu inflación personal.</p>
+            <p>En horas, dividimos el precio por lo que cobrás y multiplicamos por tus horas del mes. Un mes son {HOURS_PER_MONTH} horas, salvo que lo cambies. No cuenta el aguinaldo y no dice nada de impuestos.</p>
             <p>En el gráfico, todas las líneas arrancan en x1 en el mes que elegís. El índice de salarios es del INDEC y cubre todo el país; los precios son de GBA. Los salarios llegan más tarde. Cada escalón del eje multiplica, no suma.</p>
           </div>
         </details>
       </section>
 
-      <RaceChart
-        snapshot={snapshot}
-        unit={unit}
-        past={pastShown && { ...pastShown, oldPay: oldPay!, pay: pay! }}
-        overridden={overridePrice !== null}
-      />
+      {chartNear ? (
+        <Suspense fallback={<div className="chart chart-wait" />}>
+          <RaceChart
+            snapshot={snapshot}
+            unit={unit}
+            past={pastShown && { ...pastShown, oldPay: oldPay!, pay: pay! }}
+            overridden={overridePrice !== null}
+          />
+        </Suspense>
+      ) : <div ref={chartSlot} className="chart chart-wait" />}
+      <noscript><style>{".chart-wait { display: none; }"}</style></noscript>
 
       <footer>
         Fuente: <a href="https://www.indec.gob.ar" target="_blank" rel="noopener noreferrer">INDEC</a>

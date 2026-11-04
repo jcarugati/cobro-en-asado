@@ -78,7 +78,7 @@ export function Share({ target, comparing, label, warning = true }: {
   return (
     // Hidden, not removed: a block that comes and goes would move what is below it under the finger that tapped.
     <div className="share" style={target ? undefined : { visibility: "hidden" }}>
-      <div className={comparing || step === "fallback" ? "share-row share-row-long" : "share-row"}>
+      <div className={comparing || label || step === "fallback" ? "share-row share-row-long" : "share-row"}>
         {warning && <p id="share-warning">Con una calculadora se puede estimar tu sueldo a partir de esto.</p>}
         {target && step === "fallback" ? (
           <div className="share-actions">
