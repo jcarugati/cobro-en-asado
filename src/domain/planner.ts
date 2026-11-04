@@ -10,6 +10,7 @@ export const MIN_PEOPLE = 1;
 export const MAX_PEOPLE = 100;
 export const DEFAULT_PEOPLE = 6;
 export const DEFAULT_THEN_MONTH = "201901";
+const BOTTLE_LITRES = 1.5;
 // Editable shopping assumptions, in the same units as INDEC prices.
 export const ASADO_LIST: readonly { unit: UnitSlug; name: string; perPerson: number; step: number; measure: "kg" | "litro" | "botella" }[] = [
   { unit: "asado", name: "Asado", perPerson: 0.4, step: 0.1, measure: "kg" },
@@ -37,7 +38,7 @@ export function planAsado(snapshot: Snapshot, input: { people: number; thenMonth
     const text = String(Number(amount.toFixed(2))).replace(".", ",");
     const amountText = item.measure === "kg" ? (amount < 1 ? `${Math.round(amount * 1000)} g` : `${text} kg`)
       : item.measure === "litro" ? `${text} ${amount === 1 ? "litro" : "litros"}`
-      : `${text} ${amount === 1 ? "botella" : "botellas"} de 1,5 litros`;
+      : `${text} ${amount === 1 ? "botella" : "botellas"} de ${String(BOTTLE_LITRES).replace(".", ",")} litros`;
     return { unit: item.unit, name: item.name, amountText,
       now: amount * Option.getOrThrow(priceAt(snapshot, item.unit, input.month)),
       then: amount * Option.getOrThrow(priceAt(snapshot, item.unit, input.thenMonth)) };
@@ -64,3 +65,7 @@ export function planCardLines(plan: Plan): { headline: string; lead: string; amo
 }
 export const planShareTarget = (plan: Plan): ShareTarget => ({ path: planCardPath(plan).replace("/card/", "/c/"), card: planCardPath(plan), text: planCardLines(plan).headline });
 export const planSharedLine = (plan: Plan): string => `Un asado para ${plan.people} sale ${formatPesos(plan.totalNow)}. ¿Y el tuyo?`;
+// Everything per person reads in grams or millilitres, whatever unit INDEC prices it in.
+export const perPersonText = (item: (typeof ASADO_LIST)[number]): string => item.measure === "kg"
+  ? `${item.name}: ${Math.round(item.perPerson * 1000)} g por persona`
+  : `${item.name}: ${Math.round(item.perPerson * (item.measure === "botella" ? BOTTLE_LITRES : 1) * 1000)} ml por persona`;

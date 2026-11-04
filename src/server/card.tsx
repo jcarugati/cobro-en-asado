@@ -17,6 +17,7 @@ const CARD = "#5c120c";
 const ON_CARD = "#fff5e4";
 const ON_CARD_SOFT = "#f7d3c4";
 const YOLK = "#ffb627";
+const ON_YOLK = "#3a0d08";
 
 const WIDTH = 1200;
 const HEIGHT = 630;
@@ -114,8 +115,9 @@ export function renderPlanCard(lines: ReturnType<typeof import("../domain/planne
     lines.footer,
     <div style={{ display: "flex", flexDirection: "column", width: TEXT_WIDTH }}>
       <div style={{ display: "flex", fontSize: size, lineHeight: 0.95 }}>{lines.amount}</div>
-      <div style={{ display: "flex", marginTop: 12, fontSize: 40, lineHeight: 1.08, color: YOLK }}>{lines.tail}</div>
-      <div style={{ display: "flex", marginTop: 12, fontSize: 32 }}>{lines.detail}</div>
+      <div style={{ display: "flex", marginTop: 12, fontSize: 40, lineHeight: 1.08, color: YOLK, textWrap: "balance" }}>{lines.tail}</div>
+      {/* The surprise, stuck on like the page's price sticker. */}
+      <div style={{ display: "flex", alignSelf: "flex-start", marginTop: 20, padding: "6px 20px", borderRadius: 18, background: YOLK, color: ON_YOLK, fontSize: 64, lineHeight: 1.1, transform: "rotate(-3deg)" }}>{lines.detail}</div>
     </div>,
     <div style={{ display: "flex", flexWrap: "wrap", width: TRAY_WIDTH, gap: 4 }}>
       {lines.icons.map((unit) => <UnitIcon key={unit} unit={unit} size={84} />)}

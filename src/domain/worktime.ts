@@ -40,3 +40,8 @@ export function formatWorkDays(hours: number, hoursPerMonth: number): string {
   if (rest >= day) { days++; rest = 0; }
   return `${formatCount(days)} ${days === 1 ? "día" : "días"}${rest ? ` y ${rest} h` : ""}`;
 }
+
+export function hoursAssumption(hoursPerMonth: number): string {
+  const day = String(Number((hoursPerMonth / WORK_DAYS_PER_MONTH).toFixed(1))).replace(".", ",");
+  return `Con ${formatCount(hoursPerMonth)} horas por mes (${day} h × ${WORK_DAYS_PER_MONTH} días).`;
+}

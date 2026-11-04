@@ -1242,3 +1242,158 @@ footer {
     transition: none !important;
   }
 }
+
+/* Armá tu asado */
+
+.plan-question { margin: 0; font: 400 clamp(1.75rem, 4vw, 3.5rem)/1.05 var(--display); letter-spacing: -0.005em; }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-m);
+  background: var(--plate);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.stepper-button {
+  flex: none;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  font: 400 2.75rem/1 var(--display);
+}
+
+.stepper-button[aria-disabled="true"], .stepper-button[aria-disabled="true"]:hover, .stepper-button[aria-disabled="true"]:active {
+  translate: none;
+  background: var(--raised);
+  box-shadow: none;
+  color: var(--ghost);
+  cursor: not-allowed;
+}
+
+.stepper-count {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font: 400 5rem/1 var(--display);
+  letter-spacing: -0.02em;
+}
+
+/* Remounted per count, so every tap stamps the new number. A fade would ghost it on fast taps, and this is the page's toy. */
+.stepper-count span { display: inline-block; animation: stamp 200ms var(--ease) backwards; }
+
+.plan-card { --number: min(var(--cap), 100cqw / (var(--chars) * 0.57 + 0.4)); }
+
+.plan-total { display: flex; align-items: flex-start; margin-block: var(--space-2) var(--space-1); }
+
+/* Up high like on a price tag, so the digits stay the hero. */
+.plan-peso {
+  flex: none;
+  margin-top: 0.12em;
+  margin-right: 0.08em;
+  color: var(--yolk);
+  font: 400 calc(var(--number) * 0.5)/1 var(--display);
+}
+
+.plan-head { margin-bottom: var(--space-3); font: 400 clamp(1.375rem, 7.5cqw, 2.5rem)/1.1 var(--display); }
+
+.plan-then { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
+.plan-then .unit { font-size: clamp(1.25rem, 6cqw, 2rem); }
+
+.plan-then-price { display: block; font-size: clamp(2rem, 11cqw, 3.5rem); line-height: 1.05; }
+
+/* Stuck on like a butcher's price sticker. A stamp, not the sticker drop: a fade would keep blinking the number out. */
+.plan-multiple {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-s);
+  background: var(--yolk);
+  color: var(--on-yolk);
+  font: 400 clamp(2rem, 11cqw, 3.5rem)/1.1 var(--display);
+  letter-spacing: -0.01em;
+  rotate: -4deg;
+  animation: stamp 200ms var(--ease) backwards;
+}
+
+@keyframes stamp {
+  from { transform: scale(1.18); }
+}
+
+.plan-work { display: grid; gap: 2px; margin-top: var(--space-4); }
+
+.plan-work > p:first-child { font: 400 clamp(1.125rem, 5cqw, 1.625rem)/1.15 var(--display); text-wrap: balance; }
+
+.plan-assumption { color: var(--on-card-soft); font-size: 0.8125rem; }
+
+.plan-stale { opacity: 0.35; }
+
+.plan-table { margin-top: var(--space-4); }
+
+.plan-extras { gap: var(--space-5); }
+
+.plan-heading { margin: 0; font: 400 1.5rem/1.1 var(--display); }
+
+.plan-block { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+
+/* A shop ticket, torn off at the bottom. */
+.ticket {
+  --tear: 16px;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) calc(var(--space-4) + var(--tear) / 2);
+  background: var(--plate);
+  border-radius: var(--radius-m) var(--radius-m) 0 0;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% 100% / var(--tear) 100%;
+}
+
+.ticket table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
+
+.ticket th, .ticket td { padding: var(--space-2) 0 var(--space-2) var(--space-2); text-align: right; white-space: nowrap; }
+
+.ticket th:first-child { width: 100%; padding-left: 0; text-align: left; white-space: normal; }
+
+.ticket thead th { padding-block: 0 var(--space-1); color: var(--ink-soft); font-size: 0.75rem; font-weight: 700; line-height: 1.15; vertical-align: bottom; white-space: normal; }
+
+.ticket tbody tr { border-top: 1px solid var(--line); }
+
+.ticket tbody th { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; line-height: 1.2; }
+
+.ticket tbody svg { flex: none; width: 36px; height: 36px; filter: drop-shadow(0 1px 1px rgb(58 13 8 / 0.3)); }
+
+.ticket small { display: block; color: var(--ink-soft); font-size: 0.8125rem; font-weight: 500; }
+
+.ticket td { font-size: 0.9375rem; font-weight: 700; }
+
+/* The past is the quiet column. */
+.ticket td + td { color: var(--ink-soft); font-size: 0.8125rem; font-weight: 500; }
+
+/* Drawn, because a dashed border runs long where the columns meet. */
+.ticket tfoot tr { border-top: 0; background: repeating-linear-gradient(90deg, var(--ink) 0 8px, transparent 8px 14px) top / 100% 2px no-repeat; }
+
+.ticket tfoot th, .ticket tfoot td { padding-top: var(--space-3); font: 400 1.25rem/1.1 var(--display); }
+
+/* The display face muddies at this size. */
+.ticket tfoot td + td { font: 700 0.875rem/1.1 var(--body); }
+
+.plan-rations { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+
+@media (min-width: 960px) {
+  .stepper { padding: var(--space-3) var(--space-3) var(--space-4); }
+  .stepper-button { width: 84px; height: 84px; font-size: 3.5rem; }
+  .stepper-count { font-size: 7rem; }
+  .ticket { padding-inline: var(--space-5); }
+  .ticket td { font-size: 1.0625rem; }
+  .ticket td + td { font-size: 0.9375rem; }
+  .ticket thead th { font-size: 0.8125rem; }
+  .ticket tfoot th, .ticket tfoot td { font-size: 1.625rem; }
+  .ticket tfoot td + td { font-size: 1rem; }
+  .plan-heading { font-size: 1.75rem; }
+  .plan-total { margin-block: var(--space-3) var(--space-1); }
+  /* A short laptop gives up number and stickers, so Compartir stays on the first screen. Taller screens hit neither limit. */
+  .plan-card { --cap: min(236px, 18vh); }
+  .plan-table { max-width: max(240px, (100dvh - 579px) * 2.5); }
+  .plan-work ~ .plan-table { max-width: max(240px, (100dvh - 646px) * 2.5); }
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import { AsadoPlanner } from "../../../../src/components/AsadoPlanner.tsx";
 import { decodePlanSegments, planAsado, planSharedLine, planCardPath } from "../../../../src/domain/planner.ts";
 import { loadSnapshot } from "../../../../src/server/loadSnapshot.ts";
 
@@ -32,5 +33,5 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function SharedPage(props: Props) {
   const result = await sharedResult(props);
-  return <main><p>{planSharedLine(result)}</p></main>;
+  return <AsadoPlanner snapshot={await loadSnapshot()} shared={result} />;
 }

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { ASADO_LIST, decodePlanSegments, planAsado, planCardLines, planCardPath, planShareTarget, planSharedLine } from "../src/domain/planner.ts";
+import { ASADO_LIST, decodePlanSegments, perPersonText, planAsado, planCardLines, planCardPath, planShareTarget, planSharedLine } from "../src/domain/planner.ts";
 import { formatPesos } from "../src/domain/format.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
 const snapshot: Snapshot = JSON.parse(await readFile(new URL("./fixtures/snapshot-202609.json", import.meta.url), "utf8"));
@@ -34,4 +34,10 @@ it("pins the share contract", () => {
   expect(planCardLines(result)).toEqual({ headline: "Un asado para 6 sale $83.806. En enero 2019, $1.122.", lead: "Un asado para 6 sale", amount: "$83.806", tail: "Mismo asado en enero 2019: $1.122.", detail: "x74,7", footer: "Promedio GBA · septiembre 2026 · INDEC", icons: ASADO_LIST.map((item) => item.unit) });
   expect(planShareTarget(result)).toEqual({ path: "/c/a/6/201901/202609", card: planCardPath(result), text: planCardLines(result).headline });
   expect(planSharedLine(result)).toBe("Un asado para 6 sale $83.806. ¿Y el tuyo?");
+});
+it("says what each person gets, in units anyone can picture", () => {
+  expect(ASADO_LIST.map((item) => perPersonText(item))).toEqual([
+    "Asado: 400 g por persona", "Salame: 30 g por persona", "Queso cremoso: 30 g por persona", "Pan francés: 150 g por persona", "Tomate: 100 g por persona",
+    "Cebolla: 50 g por persona", "Papa: 150 g por persona", "Vino común: 250 ml por persona", "Cerveza: 500 ml por persona", "Gaseosa: 300 ml por persona",
+  ]);
 });
