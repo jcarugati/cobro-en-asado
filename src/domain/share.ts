@@ -8,7 +8,7 @@ export type ShareResult =
   | { kind: "p" | "o"; unit: UnitSlug; count: number; altCount: number; month: Month }
   | { kind: "t"; unit: UnitSlug; thenCount: number; nowCount: number; thenMonth: Month; month: Month };
 
-const validMonth = (month: string): boolean => MONTH_PATTERN.test(month) && month >= "201612" && month <= "209912";
+export const validMonth = (month: string): boolean => MONTH_PATTERN.test(month) && month >= "201612" && month <= "209912";
 const validCount = (count: string): boolean => /^(0|[1-9]\d{0,6})$/.test(count) && Number(count) <= 1000000;
 
 export function decodeShareSegments(segments: readonly string[]): Option.Option<ShareResult> {
@@ -46,7 +46,7 @@ export function sharedLine(result: ShareResult): string {
 }
 
 export type CardLines = {
-  kind: ShareResult["kind"];
+  kind: ShareResult["kind"] | "j";
   headline: string; // The whole sentence: what the share sheet sends as text.
   lead: string;
   count: number;

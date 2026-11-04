@@ -106,3 +106,20 @@ export function renderPreview(text: string, footer: string): ImageResponse {
     </div>,
   );
 }
+
+export function renderPlanCard(lines: ReturnType<typeof import("../domain/planner.ts").planCardLines>, init?: ResponseInit): ImageResponse {
+  const size = Math.min(180, Math.floor(TEXT_WIDTH / (lines.amount.length * 0.68)));
+  return frame(
+    lines.lead,
+    lines.footer,
+    <div style={{ display: "flex", flexDirection: "column", width: TEXT_WIDTH }}>
+      <div style={{ display: "flex", fontSize: size, lineHeight: 0.95 }}>{lines.amount}</div>
+      <div style={{ display: "flex", marginTop: 12, fontSize: 40, lineHeight: 1.08, color: YOLK }}>{lines.tail}</div>
+      <div style={{ display: "flex", marginTop: 12, fontSize: 32 }}>{lines.detail}</div>
+    </div>,
+    <div style={{ display: "flex", flexWrap: "wrap", width: TRAY_WIDTH, gap: 4 }}>
+      {lines.icons.map((unit) => <UnitIcon key={unit} unit={unit} size={84} />)}
+    </div>,
+    init,
+  );
+}

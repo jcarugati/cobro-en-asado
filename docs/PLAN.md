@@ -14,6 +14,9 @@ One branch, one worktree and one PR per task. Merges are sequential; rebase befo
 | T4 | `feat/share-routes` | `/c/...` page, `/card/...` PNG route, per-result metadata, immutable caching, generic preview, card CPU measurement, Hobby limit behaviour | Codex | Codex + Claude | T3 |
 | T5 | `feat/share-ui` | Share button, Web Share with PNG, copy and download fallback, warning line, shared banner, card visuals, MVP item 9 for all of this, client bundle measurement | Claude | Claude | T4 |
 | T6 | `chore/launch` | Live screenshots, first-time-user review, fixes, README, AGENTS status | Claude | Claude, plus Codex if non-UI files change | T5 |
+| F1a | `feat/fun-domain` | Horas de laburo: client-safe time math and fixture tests | Codex | Coordinator | T6 |
+| F1b | `feat/fun-domain` | Armá tu asado: basket math, share codec, cached-snapshot card and bare pages | Codex | Coordinator | T6 |
+| F1c | `feat/fun-domain` | ¿Más o menos?: seeded rounds, score, share codec, card and bare pages | Codex | Coordinator | T6 |
 
 ## Gate
 
@@ -72,18 +75,22 @@ type Snapshot = {
 
 ### Share URLs
 
-These hold counts only, never pesos, and are path-based so `/` and each share page stay CDN-cached.
+These hold public counts, seeds and months only, never pesos, and are path-based so `/` and each share page stay CDN-cached.
 
 ```
 pay result     /c/p/<unit>/<count>/<altCount>/<month>
 own price      /c/o/<unit>/<count>/<altCount>/<month>
 then vs now    /c/t/<unit>/<thenCount>/<nowCount>/<thenMonth>/<month>
+asado plan     /c/a/<people>/<thenMonth>/<month>
+game result    /c/j/<score>/<total>/<seed>/<month>
 card image     /card/<the same segments>
 ```
 
 - `count`: `0` to `1000000`, canonical integer with no leading zeros.
 - `unit`: a known slug. The alternate unit is not in the URL: it is `yerba` when `unit` is `asado`, otherwise `asado`.
 - `month`: `YYYYMM`, valid calendar month, from `201612` to `209912`. `thenMonth` must be earlier than `month`.
+- Plan people: canonical integer 1..100; both months valid and thenMonth < month. The card computes prices from the cached snapshot and refuses missing months.
+- Game: canonical integers with 0 <= score <= total, total = 10, seed = 0..999. The shared page also checks that the pinned month can generate a game. The card needs no snapshot.
 - Anything else returns 404.
 - The encoder returns an `Option`. When a value is out of range (say a $1 override price), `Compartir` is hidden, so the app never builds a link the route rejects.
 - The share button builds `t` when `¿Y antes?` is showing, otherwise `o` when an override is active, otherwise `p`.
@@ -102,6 +109,12 @@ card image     /card/<the same segments>
 
 | Decision | Why |
 |---|---|
+| Plan URLs hold no pesos; plan cards read the cached snapshot | Public people and months reproduce the same shopping basket without letting a forged URL invent an INDEC price |
+| Game candidates need both a 5 percentage point gap and a 5% relative gap | The first removes close short-span answers; the second removes coin flips when decades of inflation make 5 points negligible |
+| Games require five más and five menos answers with distinct products, reserving enough products for the remaining answers or returning none | Always tapping the same answer scores five, and reserving products prevents early choices from exhausting one side in historical months |
+| Game URLs pin seed and month | Friends replay the same questions even after a new data release |
+| Work time defaults to 176 hours and defines a day as monthly hours / 22 | Eight hours times 22 workdays makes the assumption explicit and lets an edited monthly total retain the same day definition |
+| Work time never leaves the page or appears on cards | A product price plus its work time reveals the visitor's pay |
 | The chart verdict says `Empate` when the wage lag leaves the winner unknown | Wages are compared at the last common month, but the chart shows the latest product price. A printed tie with either price or a winner that flips between them cannot support a definite verdict until the missing wage value is published |
 | Charts include the national INDEC wage index as reference lines; IPIM is skipped; series use multiples | Owner requested wages despite the original exclusion in DESIGN.md. They describe reference series, never the visitor's salary history: own pay stays two points. Wholesale IPIM is outside this consumer-price comparison. Multiples (`x66`) read directly and match the existing `x121` copy, unlike base 100 |
 | The chart is a race: every line starts at x1 on a log axis of multiples, and whoever ends highest rose the most | It answers the one question a visitor has, `¿Los salarios le ganaron al asado?`, and a log axis keeps a x2 step the same height in 2017 and 2025. `Tu sueldo` is two dots joined by a dashed line, because `docs/DESIGN.md` forbids an invented earnings history; the gap to the product line is the change in kilos, so the marker sits there. It is a full-width row under the two columns, so the first screen stays as it was, and the sticky card now lives in a stretched slot, because browsers bound a sticky grid item by the whole grid. Hand-rolled SVG with HTML labels in percent: no dependency, nothing to measure, no layout shift. An own line past x1.000 or under x0,01 stops at that limit and its label says so, or typed extremes would crush the real series |

@@ -26,7 +26,7 @@ export const monthWithDe = (month: Month): string => monthLabel(month).replace("
 // A preset can lag the price data, and then it must print its own month.
 export const ownMonthNote = (month: Month, lastMonth: Month): string => month === lastMonth ? "" : ` (${monthWithDe(month)})`;
 
-const unitOf = (unit: UnitSlug) => UNITS.find((item) => item.slug === unit)!;
+export const unitOf = (unit: UnitSlug) => UNITS.find((item) => item.slug === unit)!;
 
 export function unitLabel(unit: UnitSlug, count: number): string {
   const definition = unitOf(unit);
@@ -89,4 +89,8 @@ export function chartVerdict(data: ChartData, unit: UnitSlug, wage: WageKey): {
     question: `¿Los ${label} ${pronoun} ganaron ${article} ${definition.tile.toLowerCase()}?`,
     answer: tied ? "Empate" : wages > product ? "Sí" : "No",
   };
+}
+
+export function formatChange(ratio: number): string {
+  return Math.abs(ratio) >= 1 ? `${formatCount(Math.abs(ratio) * 100)}\u00a0%` : formatPercent(ratio);
 }
