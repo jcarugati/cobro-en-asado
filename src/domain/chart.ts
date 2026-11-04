@@ -79,3 +79,44 @@ export function multipleTicks(min: number, max: number): number[] {
   if (ticks.length <= 8) return ticks;
   return [...new Set([...Array.from({ length: 7 }, (_, i) => ticks[Math.round(i * (ticks.length - 1) / 6)]!), 1])].sort((a, b) => a - b);
 }
+
+// Which months the X axis names, and how many months apart. Short spans name months, longer ones name years, so labels never crowd at 360 px.
+export function monthTicks(months: Month[]): { step: number; indexes: number[] } {
+  const span = months.length - 1;
+  const step = span <= 6 ? 1 : span <= 18 ? 3 : span <= 48 ? 12 : 24;
+  const indexes = months.flatMap((month, index) => {
+    const calendar = Number(month.slice(4)) - 1;
+    // Odd years, so 2019 is named and the same years stay named when the range changes.
+    const onStep = step === 24 ? calendar === 0 && Number(month.slice(0, 4)) % 2 === 1 : calendar % step === 0;
+    return onStep ? [index] : [];
+  });
+  return { step, indexes };
+}
+
+// Moves end labels apart by the smallest shifts that leave `gap` between neighbours, within 0..100. Keeps the input order.
+export function spreadLabels(positions: number[], gap: number): number[] {
+  const order = positions.map((_, index) => index).sort((a, b) => positions[a]! - positions[b]!);
+  const spread = [...positions];
+  order.forEach((at, rank) => {
+    spread[at] = rank === 0 ? Math.max(0, spread[at]!) : Math.max(spread[at]!, spread[order[rank - 1]!]! + gap);
+  });
+  for (let rank = order.length - 1; rank >= 0; rank--) {
+    const at = order[rank]!;
+    spread[at] = rank === order.length - 1 ? Math.min(100, spread[at]!) : Math.min(spread[at]!, spread[order[rank + 1]!]! - gap);
+  }
+  return spread;
+}
+
+// Where the largest empty stretch of 0..100 starts, given the positions already taken.
+export function freeSpanStart(positions: number[]): number {
+  const edges = [0, ...[...positions].sort((a, b) => a - b), 100];
+  let start = 0;
+  let size = 0;
+  edges.slice(1).forEach((edge, index) => {
+    if (edge - edges[index]! > size) {
+      size = edge - edges[index]!;
+      start = edges[index]!;
+    }
+  });
+  return start;
+}

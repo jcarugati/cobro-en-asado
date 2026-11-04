@@ -18,6 +18,11 @@
   --on-yolk: #3a0d08;
   --ember: #c9301c;
   --pressed-edge: var(--card);
+  /* Chart lines. The wage line is the product's rival, so it takes the one cool colour on the page: siphon glass. */
+  --line-product: var(--ember);
+  --line-prices: var(--ghost);
+  --line-wages: #1c6e8c;
+  --line-own: var(--ink);
 
   --display: var(--font-display), Georgia, serif;
   --body: var(--font-body), system-ui, sans-serif;
@@ -57,6 +62,7 @@
     --yolk-deep: #8a5a06;
     --ember: #ff8257;
     --pressed-edge: var(--yolk);
+    --line-wages: #63bfe0;
     --shadow-float: 0 24px 64px rgb(0 0 0 / 0.55);
   }
 }
@@ -118,9 +124,12 @@ a { color: inherit; }
   }
 
   .controls { grid-column: 1; gap: var(--space-4); }
-  .result { grid-column: 2; grid-row: 1 / -1; position: sticky; top: var(--space-5); align-self: start; }
+  .result-slot { grid-column: 2; grid-row: 1 / -1; }
+  .result { position: sticky; top: var(--space-5); }
   .extras { grid-column: 1; }
-  footer { grid-column: 1; }
+  /* Below both columns. */
+  .chart { grid-column: 1 / -1; grid-row: 4; }
+  footer { grid-column: 1 / -1; grid-row: 5; }
 }
 
 .brand {
@@ -780,6 +789,375 @@ footer {
   border-top: 2px solid var(--line);
   color: var(--ink-soft);
   font-size: 0.8125rem;
+}
+
+/* The race: every line starts at x1, and whoever ends highest rose the most. */
+
+.chart {
+  --plot-height: 320px;
+  --plot-top: 22px;
+  --plot-bottom: 26px;
+  --plot-left: 40px;
+  --plot-right: 80px;
+  --bracket-x: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--radius-l);
+  background: var(--plate);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.chart-head {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--space-2);
+  padding-inline: var(--space-1);
+}
+
+.chart h2 { display: grid; margin: 0; font-weight: 400; }
+
+.chart-question { font: 400 1.5rem/1.1 var(--display); text-wrap: balance; }
+
+.chart-reason { display: grid; gap: var(--space-1); font-size: 0.9375rem; }
+
+.chart-unsettled { font-weight: 700; }
+
+.chart-answer {
+  color: var(--ember);
+  font: 400 min(104px, 100cqw / (max(2.4, var(--chars)) * 0.68))/1 var(--display);
+  letter-spacing: -0.02em;
+}
+
+.chart-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); min-width: 0; }
+
+.chart-main > .note, .chart-notes { padding-inline: var(--space-1); }
+
+.chart-notes { display: grid; gap: 2px; }
+
+.chart-stamp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: 400 0.8125rem/1 var(--display);
+}
+
+.chart-stamp svg { width: 24px; height: 24px; }
+
+.chart-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  margin: 0;
+  padding: 0 var(--space-1);
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chart-key li { display: flex; align-items: center; gap: 6px; }
+
+.swatch { flex: none; display: inline-block; width: 16px; border-top: 2px solid; }
+.swatch-product { border-top: 4px solid var(--line-product); }
+.swatch-prices { border-top-color: var(--line-prices); }
+.swatch-wages { border-top: 3px solid var(--line-wages); }
+/* Drawn, because a dashed border shows as solid at the width of a phone's label. */
+.swatch-own { height: 3px; border: 0; background: repeating-linear-gradient(90deg, var(--line-own) 0 4px, transparent 4px 7px); }
+
+.plot-frame {
+  /* A horizontal drag scrubs, and a vertical one still scrolls the page. */
+  touch-action: pan-y;
+  position: relative;
+  padding: var(--plot-top) var(--plot-right) var(--plot-bottom) var(--plot-left);
+  cursor: crosshair;
+  user-select: none;
+}
+
+.plot { position: relative; height: var(--plot-height); }
+
+.plot i { display: block; }
+
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--line);
+}
+
+.grid-start { border-top-color: var(--ink-soft); }
+
+.grid span {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: -9px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.month-tick {
+  position: absolute;
+  top: calc(100% + 6px);
+  translate: -50% 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: race 700ms var(--ease) backwards;
+}
+
+@keyframes race {
+  from { clip-path: inset(-40px 100% -40px 0); }
+  to { clip-path: inset(-40px -40px -40px 0); }
+}
+
+.lines polyline, .lines line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line-product { stroke: var(--line-product); stroke-width: 4; }
+.line-prices { stroke: var(--line-prices); stroke-width: 2; }
+.line-wages { stroke: var(--line-wages); stroke-width: 3; }
+.line-own { stroke: var(--line-own); stroke-width: 2.5; stroke-dasharray: 7 8; }
+
+.end-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 2px var(--plate);
+}
+
+.dot-product { background: var(--line-product); }
+.dot-prices { background: var(--line-prices); }
+.dot-wages { background: var(--line-wages); }
+.dot-own { width: 12px; height: 12px; margin: -6px 0 0 -6px; background: var(--line-own); }
+
+.end-label {
+  position: absolute;
+  left: calc(100% + 16px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  translate: 0 -50%;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  animation: fade 200ms 500ms var(--ease) backwards;
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+}
+
+.end-label .swatch { width: 12px; }
+
+.end-label svg {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  rotate: -6deg;
+  filter: drop-shadow(0 1px 1px rgb(58 13 8 / 0.3));
+}
+
+/* On a phone the key above names the lines. */
+.end-name { display: none; }
+
+.end-product { font-weight: 700; }
+
+/* From the sticker's end down to the visitor's dot: the gap is the change in kilos. */
+.bracket {
+  position: absolute;
+  left: calc(100% + var(--bracket-x));
+  width: 5px;
+  border: solid var(--ink);
+  border-width: 2px 2px 2px 0;
+  border-radius: 0 3px 3px 0;
+}
+
+.kilos-stem {
+  position: absolute;
+  left: calc(100% + var(--bracket-x) + 1px);
+  top: var(--bracket-bottom);
+  bottom: calc(-1 * var(--plot-bottom));
+  border-left: 2px dotted var(--ink-soft);
+}
+
+/* Under the plot on a phone, in the page's flow, so it can never cover a line. */
+.kilos {
+  width: fit-content;
+  max-width: 100%;
+  /* Clears the month labels, then takes back the frame's bottom padding it no longer needs. */
+  margin: var(--plot-bottom) calc(-1 * var(--plot-right)) calc(4px - var(--plot-bottom)) auto;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-s);
+  background: var(--yolk);
+  color: var(--on-yolk);
+  font: 400 0.875rem/1.15 var(--display);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.kilos span { display: block; }
+
+.stale .chart-own { opacity: 0.35; }
+
+.crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink-soft);
+}
+
+.tip {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  width: 196px;
+  padding: var(--space-2);
+  border-radius: var(--radius-s);
+  background: var(--raised);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
+/* The corner rising lines leave free: there is no room to follow the crosshair without hiding the finish. */
+.tip { bottom: 0; right: calc(-1 * var(--plot-right)); }
+
+@media (max-width: 959px) {
+  .tip-flip { top: 0; right: auto; bottom: auto; left: calc(-1 * var(--plot-left)); }
+}
+
+.tip > span { display: flex; align-items: center; gap: 6px; }
+.tip > span > span { flex: 1; min-width: 0; }
+
+.plot-scrub { top: 0; left: 0; pointer-events: none; }
+
+.plot-frame:has(.plot-scrub:focus-visible) {
+  border-radius: var(--radius-s);
+  outline: 3px solid var(--ember);
+  outline-offset: 2px;
+}
+
+.chart-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+
+.chart-chips { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+
+/* One row each on a phone, as the units are: the cut-off chip shows there is more. Each row names itself to screen readers. */
+@media (max-width: 959px) {
+  .chart-chips .caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .chart-chips .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: -6px calc(-1 * var(--space-3));
+    padding: 6px var(--space-3);
+    scrollbar-width: none;
+  }
+
+  .chart-chips .chips::-webkit-scrollbar { display: none; }
+
+  .chart-chips .chip { flex: none; }
+}
+
+.chart-table { padding-inline: var(--space-1); }
+
+.chart-table > summary { min-height: 44px; }
+
+.table-scroll { max-height: 320px; margin-bottom: var(--space-3); overflow: auto; }
+
+.chart-table table { width: 100%; border-collapse: collapse; font-size: 0.75rem; line-height: 1.25; }
+
+.chart-table th, .chart-table td { padding: var(--space-1) 3px; text-align: right; }
+
+.chart-table th:first-child { padding-left: 0; font-weight: 500; text-align: left; white-space: nowrap; }
+
+.chart-table thead th { position: sticky; top: 0; background: var(--plate); font-weight: 700; vertical-align: bottom; }
+
+.chart-table tbody tr { border-top: 1px solid var(--line); }
+
+/* Names beside the line ends need the width of a tablet. */
+@media (min-width: 600px) {
+  .chart {
+    --plot-height: 360px;
+    --plot-left: 52px;
+    --plot-right: 204px;
+    --bracket-x: 10px;
+    padding: var(--space-5);
+  }
+
+  .chart-key { display: none; }
+
+  .end-label { left: calc(100% + 24px); gap: 6px; }
+  .end-label .swatch { width: 16px; }
+  .end-label svg { width: 44px; height: 44px; }
+  .end-name { display: inline; }
+  .bracket { width: 7px; }
+
+  /* Beside the plot, under the end labels: the gutter is the one place no line reaches. */
+  .kilos-stem { top: var(--stem-top); bottom: auto; height: var(--stem-height); }
+
+  .kilos {
+    position: absolute;
+    top: calc(var(--plot-top) + var(--plot-height) * var(--kilos-at));
+    left: calc(100% - var(--plot-right) + var(--bracket-x) - 4px);
+    max-width: calc(var(--plot-right) - var(--bracket-x));
+    margin: 0;
+  }
+
+  .chart-table th, .chart-table td { padding-inline: var(--space-2); }
+  .chart-table table { font-size: 0.8125rem; }
+  .end-product { font-size: 0.9375rem; }
+}
+
+@media (min-width: 960px) {
+  .chart {
+    --plot-height: 400px;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 9fr);
+    grid-template-rows: auto 1fr auto;
+    column-gap: var(--space-6);
+    margin-top: var(--space-5);
+    padding: var(--space-6);
+    border-radius: 40px;
+  }
+
+  /* Room to sit beside the crosshair. */
+  .tip-top { top: 0; right: auto; bottom: auto; left: calc(var(--x) + 12px); }
+  .tip-bottom { right: calc(100% - var(--x) + 12px); }
+
+  .chart-head { grid-column: 1; grid-row: 1; }
+  .chart-main { grid-column: 2; grid-row: 1 / 3; }
+  .chart-controls { grid-column: 1; grid-row: 2; align-content: start; gap: var(--space-4); }
+  .chart-table { grid-column: 1 / -1; grid-row: 3; }
+  .chart-question { font-size: 2rem; }
+  .chart-answer { font-size: min(168px, 100cqw / (max(2.4, var(--chars)) * 0.68)); }
+  .chart-table table { font-size: 0.875rem; }
 }
 
 /* Error pages */

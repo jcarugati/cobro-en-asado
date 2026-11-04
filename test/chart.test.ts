@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { monthIndex } from "../src/domain/calc.ts";
-import { chartData, monthAt, multipleTicks, rangeStart, rebase, type ChartData } from "../src/domain/chart.ts";
+import { chartData, freeSpanStart, monthAt, monthTicks, multipleTicks, rangeStart, rebase, spreadLabels, type ChartData } from "../src/domain/chart.ts";
 import { chartSummary, chartVerdict, formatMultiple } from "../src/domain/format.ts";
 import { UNITS } from "../src/domain/units.ts";
 import type { Snapshot } from "../src/domain/snapshot.ts";
@@ -68,6 +68,48 @@ describe("multiple ticks", () => {
     expect(multipleTicks(1, 4.1)).toEqual([1, 2, 3, 4, 5]);
     expect(multipleTicks(1, 50)).toEqual([1, 2, 5, 10, 20, 50]);
     expect(multipleTicks(0.2, 100)).toEqual([0.1, 1, 10, 100]);
+  });
+});
+
+describe("month ticks", () => {
+  const months = (first: number, length: number) => Array.from({ length }, (_, index) => monthAt(snapshot, first + index));
+  it("names odd years on a long range", () => {
+    const { step, indexes } = monthTicks(months(0, 118));
+    expect(step).toBe(24);
+    expect(indexes.map((index) => monthAt(snapshot, index))).toEqual(["201701", "201901", "202101", "202301", "202501"]);
+  });
+  it("names each January on a middle range", () => {
+    const list = months(83, 35);
+    expect(monthTicks(list).step).toBe(12);
+    expect(monthTicks(list).indexes.map((index) => list[index])).toEqual(["202401", "202501", "202601"]);
+  });
+  it("names quarters on a year and every month on a few", () => {
+    const year = months(105, 13);
+    expect(monthTicks(year).step).toBe(3);
+    expect(monthTicks(year).indexes.map((index) => year[index])).toEqual(["202510", "202601", "202604", "202607"]);
+    expect(monthTicks(months(115, 3))).toEqual({ step: 1, indexes: [0, 1, 2] });
+  });
+});
+
+describe("end label spreading", () => {
+  it("leaves labels that already fit alone", () => {
+    expect(spreadLabels([10, 50, 90], 6)).toEqual([10, 50, 90]);
+  });
+  it("opens a gap and keeps the input order", () => {
+    expect(spreadLabels([12, 10, 30], 6)).toEqual([16, 10, 30]);
+  });
+  it("stays inside the plot at both ends", () => {
+    expect(spreadLabels([99, 100, 100], 6)).toEqual([88, 94, 100]);
+    expect(spreadLabels([-3, 0], 6)).toEqual([0, 6]);
+  });
+});
+
+describe("free span", () => {
+  it("finds the largest empty stretch wherever it is", () => {
+    expect(freeSpanStart([5, 13, 21])).toBe(21);
+    expect(freeSpanStart([5, 13, 95])).toBe(13);
+    expect(freeSpanStart([60, 70, 80])).toBe(0);
+    expect(freeSpanStart([40, 5])).toBe(40);
   });
 });
 

@@ -104,6 +104,7 @@ card image     /card/<the same segments>
 |---|---|
 | The chart verdict says `Empate` when the wage lag leaves the winner unknown | Wages are compared at the last common month, but the chart shows the latest product price. A printed tie with either price or a winner that flips between them cannot support a definite verdict until the missing wage value is published |
 | Charts include the national INDEC wage index as reference lines; IPIM is skipped; series use multiples | Owner requested wages despite the original exclusion in DESIGN.md. They describe reference series, never the visitor's salary history: own pay stays two points. Wholesale IPIM is outside this consumer-price comparison. Multiples (`x66`) read directly and match the existing `x121` copy, unlike base 100 |
+| The chart is a race: every line starts at x1 on a log axis of multiples, and whoever ends highest rose the most | It answers the one question a visitor has, `¿Los salarios le ganaron al asado?`, and a log axis keeps a x2 step the same height in 2017 and 2025. `Tu sueldo` is two dots joined by a dashed line, because `docs/DESIGN.md` forbids an invented earnings history; the gap to the product line is the change in kilos, so the marker sits there. It is a full-width row under the two columns, so the first screen stays as it was, and the sticky card now lives in a stretched slot, because browsers bound a sticky grid item by the whole grid. Hand-rolled SVG with HTML labels in percent: no dependency, nothing to measure, no layout shift. An own line past x1.000 or under x0,01 stops at that limit and its label says so, or typed extremes would crush the real series |
 | `vercel.json` declares `framework: nextjs` | The project was created before any code and has no framework set |
 | npm and Vitest | Installed everywhere, and no build-script approvals to manage |
 | The only script is `scripts/write-snapshot-fixture.ts`, run with Node type stripping and relative `.ts` imports | It needs no runner dependency, only `@effect/platform-node` as a devDependency for `runMain` |
@@ -126,6 +127,10 @@ card image     /card/<the same segments>
 
 ## Follow-ups
 
+- On a phone the dotted kilos leader can cross the last month label for own months 202603 to 202607.
+- On a phone the chart starts about 1,000 px down the page and nothing points to it.
+- With `Tu sueldo` at x0,01 on a short range, the `x1,50` and `x1,25` axis labels touch. Absurd input only, and still legible.
+- The client bundle has little room left: 161,263 bytes gzip for `/`, measured as this file describes, against 164,904 (the 134,904 baseline plus 30 KB). That leaves about 3.6 KB.
 - Preset cards: share is typed pay only.
 - An override is forgotten when switching units and back. The headline loses its label, so it is honest but mildly annoying.
 - Real phones, Web Share sheets, real screen readers, Safari and Firefox were never tested.

@@ -8,6 +8,7 @@ import { caretAfterGrouping, groupWhileTyping, parsePay, withDots } from "../dom
 import type { Snapshot } from "../domain/snapshot.ts";
 import { cardLines, shareResultFor, sharedLine, sharedParts, shareTarget, type ShareResult } from "../domain/share.ts";
 import { UNITS, type UnitSlug } from "../domain/units.ts";
+import { RaceChart } from "./RaceChart.tsx";
 import { Share } from "./Share.tsx";
 import { UnitIcon } from "./UnitIcon.tsx";
 
@@ -350,52 +351,55 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
         />
       </div>
 
-      <section className="result">
-        {/* Its own live region, so screen readers reach the result in one sentence. The animated number stays outside it, so only the final sentence is announced. */}
-        <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${formatCount(count)} ${tail}`}</p>
-        <article className="card" style={{ "--chars": amount === null && !friend ? 2 : formatCount(shownCount).length } as CSSProperties}>
-          <div aria-hidden="true" className="card-top">
-            <span className="lead">{friend ? friend.lead : lead}</span>
-            <span className="stamp"><UnitIcon unit="asado" />Cobro en Asado</span>
-          </div>
-          <p aria-hidden="true" className="headline">
+      {/* The stretched slot is what stops the sticky card above the chart: browsers bound a sticky grid item by the whole grid. */}
+      <div className="result-slot">
+        <section className="result">
+          {/* Its own live region, so screen readers reach the result in one sentence. The animated number stays outside it, so only the final sentence is announced. */}
+          <p className="sr-only" aria-live="polite">{amount === null ? "" : `${lead} ${formatCount(count)} ${tail}`}</p>
+          <article className="card" style={{ "--chars": amount === null && !friend ? 2 : formatCount(shownCount).length } as CSSProperties}>
+            <div aria-hidden="true" className="card-top">
+              <span className="lead">{friend ? friend.lead : lead}</span>
+              <span className="stamp"><UnitIcon unit="asado" />Cobro en Asado</span>
+            </div>
+            <p aria-hidden="true" className="headline">
+              {amount === null && !friend
+                ? <span className="big big-unknown">¿?</span>
+                : <BigNumber value={shownCount} from={friend ? friend.count : 0} />}
+              <span className="unit">{friend ? friend.tail : amount === null ? `${definition.plural}.` : tail}</span>
+            </p>
+            {each > 1 && <p aria-hidden="true" className="legend">{`Cada ícono: ${countPhrase(unit, each)}.`}</p>}
+            {/* One tray per unit, so changing unit drops a new pile while typing only adds to it. */}
             {amount === null && !friend
-              ? <span className="big big-unknown">¿?</span>
-              : <BigNumber value={shownCount} from={friend ? friend.count : 0} />}
-            <span className="unit">{friend ? friend.tail : amount === null ? `${definition.plural}.` : tail}</span>
-          </p>
-          {each > 1 && <p aria-hidden="true" className="legend">{`Cada ícono: ${countPhrase(unit, each)}.`}</p>}
-          {/* One tray per unit, so changing unit drops a new pile while typing only adds to it. */}
-          {amount === null && !friend
-            ? <div className="ghost"><Tray key={unit} unit={unit} count={18} /></div>
-            : <Tray key={unit} unit={unit} count={shownCount} />}
-          <div className="card-foot">
-            {/* A shared count comes from its own month's price, which may not be today's, and may be a butcher's. */}
-            {!friend && <p>{`Precio promedio: ${formatPesos(priceOf(unit))} por ${definition.priceUnit}.`}</p>}
-            <p>{friend ? friend.footer : printed}</p>
+              ? <div className="ghost"><Tray key={unit} unit={unit} count={18} /></div>
+              : <Tray key={unit} unit={unit} count={shownCount} />}
+            <div className="card-foot">
+              {/* A shared count comes from its own month's price, which may not be today's, and may be a butcher's. */}
+              {!friend && <p>{`Precio promedio: ${formatPesos(priceOf(unit))} por ${definition.priceUnit}.`}</p>}
+              <p>{friend ? friend.footer : printed}</p>
+            </div>
+          </article>
+          {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: a regrouped text must not remount the button being tapped, or the tap is lost. */}
+          {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
+          <div className="facts" aria-live="polite">
+            {amount === null ? (
+              <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
+            ) : (
+              <>
+                <p className="alternate">{`O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
+                {preset === null && (
+                  <p>{`Equivale al ${formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA${ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.`}</p>
+                )}
+                {preset === "cbtHogar2" && (
+                  <p>Es la canasta básica total de un hogar de 4 en GBA{ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.</p>
+                )}
+                {preset === "crianzaMenor1" && (
+                  <p>Canasta de crianza{ownMonthNote(snapshot.presets.crianzaMenor1.month, snapshot.lastMonth)}: incluye el valor del tiempo de cuidado.</p>
+                )}
+              </>
+            )}
           </div>
-        </article>
-        {/* The key resets it on any change to the pay, unit or override: kept file, status and fallback. Values, not text: a regrouped text must not remount the button being tapped, or the tap is lost. */}
-        {amount !== null && <Share key={`${target?.path} ${pay} ${overridePrice}`} target={target} comparing={pastShown !== null} />}
-        <div className="facts" aria-live="polite">
-          {amount === null ? (
-            <p className="tagline">Tu sueldo, en la unidad que entendemos todos: kilos de asado.</p>
-          ) : (
-            <>
-              <p className="alternate">{`O ${countPhrase(altUnitOf(unit), unitsFor(amount, priceOf(altUnitOf(unit))))}.`}</p>
-              {preset === null && (
-                <p>{`Equivale al ${formatPercent(canastaShare(snapshot, amount))} de la canasta básica total de un hogar de 4 en GBA${ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.`}</p>
-              )}
-              {preset === "cbtHogar2" && (
-                <p>Es la canasta básica total de un hogar de 4 en GBA{ownMonthNote(snapshot.presets.cbtHogar2.month, snapshot.lastMonth)}.</p>
-              )}
-              {preset === "crianzaMenor1" && (
-                <p>Canasta de crianza{ownMonthNote(snapshot.presets.crianzaMenor1.month, snapshot.lastMonth)}: incluye el valor del tiempo de cuidado.</p>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section className="extras">
       <div className="presets">
@@ -462,9 +466,17 @@ export function Calculator({ snapshot, shared }: { snapshot: Snapshot; shared?: 
             <p>Las fuentes son del INDEC: precios promedio e IPC de GBA, canasta básica total y canasta de crianza. Los datos son de {monthWithDe(snapshot.lastMonth)}.</p>
             <p>Vale solo para GBA. Son promedios publicados, no el precio de una carnicería ni de una marca, y salen con demora: el INDEC los publica el mes siguiente.</p>
             <p>¿Y antes? compara con los precios en general (IPC GBA). No es una medida de tu inflación personal.</p>
+            <p>En el gráfico, todas las líneas arrancan en x1 en el mes que elegís. El índice de salarios es del INDEC y cubre todo el país; los precios son de GBA. Los salarios llegan más tarde. Cada escalón del eje multiplica, no suma.</p>
           </div>
         </details>
       </section>
+
+      <RaceChart
+        snapshot={snapshot}
+        unit={unit}
+        past={pastShown && { ...pastShown, oldPay: oldPay!, pay: pay! }}
+        overridden={overridePrice !== null}
+      />
 
       <footer>
         Fuente: <a href="https://www.indec.gob.ar" target="_blank" rel="noopener noreferrer">INDEC</a>

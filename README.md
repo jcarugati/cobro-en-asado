@@ -4,7 +4,7 @@ Tu sueldo, en la unidad que entendemos todos: kilos de asado.
 
 Live: https://cobro-en-asado.vercel.app
 
-Type your monthly pay and see it in kilos of asado or 21 other INDEC-priced products, and compare it with an older pay. Design: docs/DESIGN.md. Plan and follow-ups: docs/PLAN.md. API catalog: docs/API-CATALOG.md.
+Type your monthly pay and see it in kilos of asado or 21 other INDEC-priced products, compare it with an older pay, and see in a chart whether wages beat its price. Design: docs/DESIGN.md. Plan and follow-ups: docs/PLAN.md. API catalog: docs/API-CATALOG.md.
 
 ## Data
 
